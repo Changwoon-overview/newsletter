@@ -274,20 +274,164 @@ class AINL_Admin {
         // 보안 체크
         AINL_Security::admin_page_security_check('edit_posts');
         
+        // 액션 처리
+        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : 'list';
+        $template_id = isset($_GET['template']) ? sanitize_text_field($_GET['template']) : '';
+        
+        switch ($action) {
+            case 'preview':
+                $this->render_template_preview($template_id);
+                break;
+            case 'test':
+                $this->render_template_test();
+                break;
+            default:
+                $this->render_templates_list();
+                break;
+        }
+    }
+    
+    /**
+     * 템플릿 목록 렌더링
+     */
+    private function render_templates_list() {
         $this->render_page_header('템플릿 관리', '이메일 템플릿 생성 및 편집');
+        
+        // 템플릿 매니저 인스턴스 생성
+        $template_manager = new AINL_Template_Manager();
+        $templates = $template_manager->get_default_templates();
         ?>
         <div class="ainl-templates">
             <div class="ainl-page-actions">
-                <a href="<?php echo admin_url('admin.php?page=ai-newsletter-templates&action=new'); ?>" class="button button-primary">
-                    새 템플릿 추가
+                <a href="<?php echo admin_url('admin.php?page=ai-newsletter-templates&action=test'); ?>" class="button button-secondary">
+                    템플릿 시스템 테스트
                 </a>
             </div>
             
-            <div class="ainl-templates-list">
-                <p>템플릿 목록이 여기에 표시됩니다. (작업 6에서 구현 예정)</p>
+            <div class="ainl-templates-grid">
+                <?php foreach ($templates as $key => $template): ?>
+                <div class="ainl-template-card">
+                    <div class="ainl-template-preview">
+                        <iframe src="<?php echo admin_url('admin.php?page=ai-newsletter-templates&action=preview&template=' . $key); ?>" 
+                                width="100%" height="300" frameborder="0"></iframe>
+                    </div>
+                    <div class="ainl-template-info">
+                        <h3><?php echo esc_html($template['name']); ?></h3>
+                        <p><?php echo esc_html($template['description']); ?></p>
+                        <div class="ainl-template-actions">
+                            <a href="<?php echo admin_url('admin.php?page=ai-newsletter-templates&action=preview&template=' . $key); ?>" 
+                               class="button button-secondary" target="_blank">미리보기</a>
+                            <button class="button button-primary ainl-select-template" data-template="<?php echo esc_attr($key); ?>">
+                                선택
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div class="ainl-template-variables">
+                <h3>사용 가능한 템플릿 변수</h3>
+                <div class="ainl-variables-list">
+                    <?php 
+                    $variables = $template_manager->get_available_variables();
+                    foreach ($variables as $variable): 
+                    ?>
+                    <code><?php echo esc_html($variable); ?></code>
+                    <?php endforeach; ?>
+                </div>
+                <p class="description">
+                    위 변수들을 사용하여 커스텀 템플릿을 만들 수 있습니다. 
+                    각 변수는 뉴스레터 생성 시 실제 데이터로 치환됩니다.
+                </p>
             </div>
         </div>
+        
+        <style>
+        .ainl-templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .ainl-template-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .ainl-template-preview {
+            height: 300px;
+            overflow: hidden;
+        }
+        .ainl-template-info {
+            padding: 15px;
+        }
+        .ainl-template-info h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        .ainl-template-info p {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .ainl-template-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .ainl-variables-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .ainl-variables-list code {
+            background: #f0f0f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        </style>
         <?php
+        $this->render_page_footer();
+    }
+    
+    /**
+     * 템플릿 미리보기 렌더링
+     */
+    private function render_template_preview($template_id) {
+        if (empty($template_id)) {
+            wp_die('템플릿 ID가 필요합니다.');
+        }
+        
+        $template_manager = new AINL_Template_Manager();
+        $preview_html = $template_manager->generate_preview($template_id);
+        
+        if ($preview_html === false) {
+            wp_die('유효하지 않은 템플릿 ID입니다.');
+        }
+        
+        // HTML 헤더 설정
+        header('Content-Type: text/html; charset=UTF-8');
+        
+        // 미리보기 HTML 출력
+        echo $preview_html;
+        exit;
+    }
+    
+    /**
+     * 템플릿 시스템 테스트 페이지 렌더링
+     */
+    private function render_template_test() {
+        $this->render_page_header('템플릿 시스템 테스트', '템플릿 시스템의 모든 기능을 검증합니다');
+        
+        // 테스트 실행
+        $test_results = AINL_Template_Test::run_all_tests();
+        
+        // 테스트 결과 표시
+        AINL_Template_Test::display_test_results($test_results);
+        
         $this->render_page_footer();
     }
     

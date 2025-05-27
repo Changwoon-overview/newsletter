@@ -102,10 +102,20 @@ class AI_Newsletter_Generator_Pro {
         
         // 클래스명을 파일명으로 변환
         $file_name = 'class-' . strtolower(str_replace('_', '-', $class_name)) . '.php';
-        $file_path = AINL_PLUGIN_DIR . 'includes/' . $file_name;
         
-        if (file_exists($file_path)) {
-            require_once $file_path;
+        // 여러 디렉토리에서 파일 검색
+        $search_paths = array(
+            AINL_PLUGIN_DIR . 'includes/',
+            AINL_PLUGIN_DIR . 'admin/',
+            AINL_PLUGIN_DIR . 'public/'
+        );
+        
+        foreach ($search_paths as $path) {
+            $file_path = $path . $file_name;
+            if (file_exists($file_path)) {
+                require_once $file_path;
+                return;
+            }
         }
     }
     
