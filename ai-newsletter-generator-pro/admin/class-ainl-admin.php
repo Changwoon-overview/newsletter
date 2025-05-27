@@ -18,6 +18,14 @@ class AINL_Admin {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('admin_init', array($this, 'admin_init'));
+        add_action('wp_ajax_ainl_test_templates', array($this, 'ajax_test_templates'));
+        add_action('wp_ajax_ainl_get_template_preview', array($this, 'ajax_get_template_preview'));
+        add_action('wp_ajax_ainl_add_subscriber', array($this, 'ajax_add_subscriber'));
+        add_action('wp_ajax_ainl_update_subscriber', array($this, 'ajax_update_subscriber'));
+        add_action('wp_ajax_ainl_delete_subscriber', array($this, 'ajax_delete_subscriber'));
+        add_action('wp_ajax_ainl_bulk_action_subscribers', array($this, 'ajax_bulk_action_subscribers'));
+        add_action('wp_ajax_ainl_import_subscribers', array($this, 'ajax_import_subscribers'));
+        add_action('wp_ajax_ainl_export_subscribers', array($this, 'ajax_export_subscribers'));
     }
     
     /**
@@ -112,9 +120,13 @@ class AINL_Admin {
      */
     public function enqueue_admin_scripts($hook) {
         // AI Newsletter 페이지에서만 로드
-        if (strpos($hook, 'ai-newsletter') === false) {
+        if (strpos($hook, 'ai-newsletter') === false && strpos($hook, 'ainl-') === false) {
             return;
         }
+        
+        wp_enqueue_script('jquery');
+        wp_enqueue_script('jquery-ui-dialog');
+        wp_enqueue_style('wp-jquery-ui-dialog');
         
         // CSS 파일 로드
         wp_enqueue_style(
@@ -128,7 +140,7 @@ class AINL_Admin {
         wp_enqueue_script(
             'ainl-admin-script',
             AINL_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
+            array('jquery', 'jquery-ui-dialog'),
             AINL_PLUGIN_VERSION,
             true
         );
@@ -139,9 +151,10 @@ class AINL_Admin {
             'nonce' => wp_create_nonce('ainl_admin_nonce'),
             'strings' => array(
                 'confirm_delete' => __('정말로 삭제하시겠습니까?', 'ai-newsletter-generator-pro'),
-                'saving' => __('저장 중...', 'ai-newsletter-generator-pro'),
-                'saved' => __('저장되었습니다.', 'ai-newsletter-generator-pro'),
-                'error' => __('오류가 발생했습니다.', 'ai-newsletter-generator-pro')
+                'bulk_confirm_delete' => __('선택한 구독자들을 정말로 삭제하시겠습니까?', 'ai-newsletter-generator-pro'),
+                'processing' => __('처리 중...', 'ai-newsletter-generator-pro'),
+                'error' => __('오류가 발생했습니다.', 'ai-newsletter-generator-pro'),
+                'success' => __('성공적으로 처리되었습니다.', 'ai-newsletter-generator-pro')
             )
         ));
     }
@@ -707,6 +720,253 @@ class AINL_Admin {
             echo '</ul>';
         } else {
             echo '<p>아직 활동이 없습니다.</p>';
+        }
+    }
+    
+    /**
+     * AJAX: 템플릿 테스트
+     */
+    public function ajax_test_templates() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $template_test = new AINL_Template_Test();
+        $results = $template_test->run_all_tests();
+        
+        wp_send_json_success(array('results' => $results));
+    }
+    
+    /**
+     * AJAX: 템플릿 미리보기
+     */
+    public function ajax_get_template_preview() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $template_id = sanitize_text_field($_POST['template_id']);
+        $template_manager = new AINL_Template_Manager();
+        
+        // 샘플 데이터로 템플릿 렌더링
+        $sample_data = array(
+            'site_name' => get_bloginfo('name'),
+            'newsletter_title' => '샘플 뉴스레터',
+            'newsletter_date' => date('Y년 m월 d일'),
+            'posts_content' => '<div class="post-item"><h3>샘플 포스트 제목</h3><p>이것은 샘플 포스트 내용입니다...</p></div>'
+        );
+        
+        $html = $template_manager->render_template($template_id, $sample_data);
+        
+        if ($html) {
+            wp_send_json_success(array('html' => $html));
+        } else {
+            wp_send_json_error('템플릿을 렌더링할 수 없습니다.');
+        }
+    }
+    
+    /**
+     * AJAX: 구독자 추가
+     */
+    public function ajax_add_subscriber() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $subscriber_manager = new AINL_Subscriber_Manager();
+        
+        $data = array(
+            'email' => sanitize_email($_POST['email']),
+            'first_name' => sanitize_text_field($_POST['first_name']),
+            'last_name' => sanitize_text_field($_POST['last_name']),
+            'status' => sanitize_text_field($_POST['status']),
+            'tags' => sanitize_text_field($_POST['tags']),
+            'source' => 'admin'
+        );
+        
+        $result = $subscriber_manager->create_subscriber($data);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => '구독자가 성공적으로 추가되었습니다.',
+                'subscriber_id' => $result
+            ));
+        }
+    }
+    
+    /**
+     * AJAX: 구독자 업데이트
+     */
+    public function ajax_update_subscriber() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $subscriber_manager = new AINL_Subscriber_Manager();
+        $subscriber_id = intval($_POST['subscriber_id']);
+        
+        $data = array(
+            'email' => sanitize_email($_POST['email']),
+            'first_name' => sanitize_text_field($_POST['first_name']),
+            'last_name' => sanitize_text_field($_POST['last_name']),
+            'status' => sanitize_text_field($_POST['status']),
+            'tags' => sanitize_text_field($_POST['tags'])
+        );
+        
+        $result = $subscriber_manager->update_subscriber($subscriber_id, $data);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => '구독자 정보가 성공적으로 업데이트되었습니다.'
+            ));
+        }
+    }
+    
+    /**
+     * AJAX: 구독자 삭제
+     */
+    public function ajax_delete_subscriber() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $subscriber_manager = new AINL_Subscriber_Manager();
+        $subscriber_id = intval($_POST['subscriber_id']);
+        
+        $result = $subscriber_manager->delete_subscriber($subscriber_id);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => '구독자가 성공적으로 삭제되었습니다.'
+            ));
+        }
+    }
+    
+    /**
+     * AJAX: 구독자 대량 작업
+     */
+    public function ajax_bulk_action_subscribers() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $subscriber_manager = new AINL_Subscriber_Manager();
+        $action = sanitize_text_field($_POST['bulk_action']);
+        $subscriber_ids = array_map('intval', $_POST['subscriber_ids']);
+        
+        if (empty($subscriber_ids)) {
+            wp_send_json_error('선택된 구독자가 없습니다.');
+        }
+        
+        switch ($action) {
+            case 'delete':
+                $result = $subscriber_manager->bulk_delete_subscribers($subscriber_ids);
+                break;
+                
+            case 'status_change':
+                $new_status = sanitize_text_field($_POST['new_status']);
+                $result = $subscriber_manager->bulk_update_status($subscriber_ids, $new_status);
+                break;
+                
+            default:
+                wp_send_json_error('유효하지 않은 작업입니다.');
+        }
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => '대량 작업이 성공적으로 완료되었습니다.',
+                'result' => $result
+            ));
+        }
+    }
+    
+    /**
+     * AJAX: 구독자 가져오기
+     */
+    public function ajax_import_subscribers() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error('파일 업로드 오류가 발생했습니다.');
+        }
+        
+        $subscriber_manager = new AINL_Subscriber_Manager();
+        $file_path = $_FILES['csv_file']['tmp_name'];
+        $update_existing = isset($_POST['update_existing']) && $_POST['update_existing'] === '1';
+        
+        $options = array(
+            'update_existing' => $update_existing
+        );
+        
+        $result = $subscriber_manager->import_from_csv($file_path, $options);
+        
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        } else {
+            wp_send_json_success(array(
+                'message' => 'CSV 가져오기가 완료되었습니다.',
+                'result' => $result
+            ));
+        }
+    }
+    
+    /**
+     * AJAX: 구독자 내보내기
+     */
+    public function ajax_export_subscribers() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $subscriber_manager = new AINL_Subscriber_Manager();
+        
+        // 필터 조건 적용
+        $args = array();
+        if (isset($_POST['status']) && !empty($_POST['status'])) {
+            $args['status'] = sanitize_text_field($_POST['status']);
+        }
+        if (isset($_POST['search']) && !empty($_POST['search'])) {
+            $args['search'] = sanitize_text_field($_POST['search']);
+        }
+        
+        $file_path = $subscriber_manager->export_to_csv($args);
+        
+        if (is_wp_error($file_path)) {
+            wp_send_json_error($file_path->get_error_message());
+        } else {
+            $upload_dir = wp_upload_dir();
+            $file_url = str_replace($upload_dir['path'], $upload_dir['url'], $file_path);
+            
+            wp_send_json_success(array(
+                'message' => 'CSV 파일이 성공적으로 생성되었습니다.',
+                'download_url' => $file_url
+            ));
         }
     }
 } 

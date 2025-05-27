@@ -153,6 +153,15 @@ class AI_Newsletter_Generator_Pro {
         // 보안 시스템 초기화 (최우선)
         new AINL_Security();
         
+        // 데이터베이스 관리자 초기화
+        new AINL_Database();
+        
+        // 구독자 관리자 초기화
+        new AINL_Subscriber_Manager();
+        
+        // 템플릿 관리자 초기화
+        new AINL_Template_Manager();
+        
         // 관리자 인터페이스 초기화
         if (is_admin()) {
             new AINL_Admin();
@@ -160,7 +169,6 @@ class AI_Newsletter_Generator_Pro {
         }
         
         // 각 컴포넌트들은 후속 작업에서 구현될 예정
-        // - 데이터베이스 관리자
         // - AI 엔진
         // - 이메일 시스템 등
     }
