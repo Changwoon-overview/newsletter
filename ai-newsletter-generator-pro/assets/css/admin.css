@@ -1,0 +1,428 @@
+/**
+ * AI Newsletter Generator Pro - 관리자 스타일
+ * WordPress 관리자 페이지의 스타일을 정의합니다.
+ */
+
+/* 기본 페이지 스타일 */
+.ainl-admin-page {
+    background: #fff;
+    margin: 20px 0;
+}
+
+.ainl-page-title {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.3;
+}
+
+.ainl-page-title .ainl-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTQgNEgyMFYyMEg0VjRaIiBzdHJva2U9IiMwMDdjYmEiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4K') no-repeat center;
+    background-size: contain;
+}
+
+.ainl-page-description {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* 대시보드 스타일 */
+.ainl-dashboard {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: 1fr;
+}
+
+.ainl-dashboard-widgets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.ainl-widget {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.ainl-widget h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ainl-stat-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #007cba;
+    line-height: 1;
+}
+
+/* 빠른 작업 섹션 */
+.ainl-dashboard-actions {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.ainl-dashboard-actions h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.ainl-quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ainl-quick-actions .button {
+    margin: 0;
+}
+
+/* 최근 활동 섹션 */
+.ainl-recent-activity {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.ainl-recent-activity h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.ainl-activity-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ainl-activity-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ainl-activity-list li:last-child {
+    border-bottom: none;
+}
+
+.ainl-activity-list .status {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.ainl-activity-list .status-draft {
+    background: #f0f0f1;
+    color: #646970;
+}
+
+.ainl-activity-list .status-sent {
+    background: #d1e7dd;
+    color: #0f5132;
+}
+
+.ainl-activity-list .status-sending {
+    background: #fff3cd;
+    color: #664d03;
+}
+
+.ainl-activity-list .date {
+    color: #666;
+    font-size: 12px;
+}
+
+/* 페이지 액션 버튼 */
+.ainl-page-actions {
+    margin-bottom: 20px;
+    padding: 15px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.ainl-page-actions .button {
+    margin-right: 10px;
+}
+
+/* 목록 스타일 */
+.ainl-campaigns,
+.ainl-subscribers,
+.ainl-templates,
+.ainl-forms {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.ainl-campaigns-list,
+.ainl-subscribers-list,
+.ainl-templates-list,
+.ainl-forms-list {
+    margin-top: 20px;
+}
+
+/* 통계 페이지 */
+.ainl-statistics {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.ainl-stats-overview {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+/* 설정 페이지 */
+.ainl-settings {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .ainl-dashboard-widgets {
+        grid-template-columns: 1fr;
+    }
+    
+    .ainl-quick-actions {
+        flex-direction: column;
+    }
+    
+    .ainl-quick-actions .button {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .ainl-activity-list li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+
+/* 로딩 상태 */
+.ainl-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007cba;
+    border-radius: 50%;
+    animation: ainl-spin 1s linear infinite;
+}
+
+@keyframes ainl-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 알림 메시지 */
+.ainl-notice {
+    padding: 12px;
+    margin: 15px 0;
+    border-left: 4px solid #007cba;
+    background: #f0f8ff;
+    border-radius: 0 4px 4px 0;
+}
+
+.ainl-notice.error {
+    border-left-color: #d63638;
+    background: #ffeaea;
+}
+
+.ainl-notice.success {
+    border-left-color: #00a32a;
+    background: #eafaea;
+}
+
+.ainl-notice.warning {
+    border-left-color: #dba617;
+    background: #fffbea;
+}
+
+/* 폼 스타일 */
+.ainl-form-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.ainl-form-table th,
+.ainl-form-table td {
+    padding: 15px 10px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+}
+
+.ainl-form-table th {
+    width: 200px;
+    font-weight: 600;
+    color: #333;
+}
+
+.ainl-form-table input[type="text"],
+.ainl-form-table input[type="email"],
+.ainl-form-table input[type="password"],
+.ainl-form-table textarea,
+.ainl-form-table select {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.ainl-form-table textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+.ainl-form-table .description {
+    color: #666;
+    font-size: 13px;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+/* 버튼 스타일 개선 */
+.button.ainl-button-primary {
+    background: #007cba;
+    border-color: #005a87;
+    color: #fff;
+}
+
+.button.ainl-button-primary:hover {
+    background: #005a87;
+    border-color: #004066;
+}
+
+.button.ainl-button-secondary {
+    background: #f6f7f7;
+    border-color: #ddd;
+    color: #333;
+}
+
+.button.ainl-button-secondary:hover {
+    background: #f0f0f1;
+    border-color: #999;
+}
+
+/* 테이블 스타일 */
+.ainl-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ainl-table th,
+.ainl-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.ainl-table th {
+    background: #f9f9f9;
+    font-weight: 600;
+    color: #333;
+}
+
+.ainl-table tr:hover {
+    background: #f9f9f9;
+}
+
+.ainl-table .actions {
+    white-space: nowrap;
+}
+
+.ainl-table .actions a {
+    margin-right: 10px;
+    text-decoration: none;
+}
+
+/* 탭 스타일 */
+.ainl-tabs {
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.ainl-tabs ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+.ainl-tabs li {
+    margin: 0;
+}
+
+.ainl-tabs a {
+    display: block;
+    padding: 12px 20px;
+    text-decoration: none;
+    color: #666;
+    border-bottom: 2px solid transparent;
+}
+
+.ainl-tabs a:hover,
+.ainl-tabs a.active {
+    color: #007cba;
+    border-bottom-color: #007cba;
+}
+
+/* 카드 스타일 */
+.ainl-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.ainl-card h3 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.ainl-card p {
+    margin: 0 0 10px 0;
+    color: #666;
+}
+
+.ainl-card:last-child {
+    margin-bottom: 0;
+} 
