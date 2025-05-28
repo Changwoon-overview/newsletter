@@ -36,6 +36,11 @@ class AINL_Database {
         self::create_email_queue_table();
         self::create_email_logs_table();
         
+        // 추가 통계 테이블 생성
+        if (class_exists('AINL_Statistics')) {
+            AINL_Statistics::create_additional_tables();
+        }
+        
         // 데이터베이스 버전 저장
         update_option('ainl_db_version', self::DB_VERSION);
         

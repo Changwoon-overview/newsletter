@@ -1,0 +1,454 @@
+/**
+ * AI Newsletter Generator Pro - 통계 관리자 스타일
+ * 관리자 통계 대시보드의 스타일을 정의합니다.
+ *
+ * @package AI_Newsletter_Generator_Pro
+ * @since 1.0.0
+ */
+
+/* =============================================================================
+   통계 개요 카드 스타일
+   ========================================================================== */
+
+.ainl-stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0 30px 0;
+}
+
+.ainl-stat-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.ainl-stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.ainl-stat-card h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #646970;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ainl-stat-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #1d2327;
+    line-height: 1;
+    transition: color 0.3s ease;
+}
+
+.ainl-stat-number.updated {
+    color: #00a32a;
+    transform: scale(1.05);
+}
+
+/* 특정 통계별 색상 */
+.ainl-stat-card:nth-child(1) .ainl-stat-number {
+    color: #007cba;
+}
+
+.ainl-stat-card:nth-child(2) .ainl-stat-number {
+    color: #00a32a;
+}
+
+.ainl-stat-card:nth-child(3) .ainl-stat-number {
+    color: #d63638;
+}
+
+.ainl-stat-card:nth-child(4) .ainl-stat-number {
+    color: #dba617;
+}
+
+/* =============================================================================
+   차트 컨테이너 스타일
+   ========================================================================== */
+
+.ainl-charts-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 30px;
+    margin: 30px 0;
+}
+
+.ainl-chart-section {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ainl-chart-section h2 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    color: #1d2327;
+    border-bottom: 2px solid #f0f0f1;
+    padding-bottom: 10px;
+}
+
+.ainl-chart-section canvas {
+    max-height: 400px;
+}
+
+/* =============================================================================
+   캠페인 통계 테이블 스타일
+   ========================================================================== */
+
+.ainl-campaigns-stats {
+    margin: 30px 0;
+}
+
+.ainl-campaigns-stats h2 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    color: #1d2327;
+}
+
+#campaigns-table-container {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+#campaigns-table-container table {
+    margin: 0;
+    border: none;
+}
+
+#campaigns-table-container .wp-list-table th {
+    background: #f6f7f7;
+    border-bottom: 1px solid #c3c4c7;
+    font-weight: 600;
+    color: #1d2327;
+    padding: 15px 10px;
+}
+
+#campaigns-table-container .wp-list-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #f0f0f1;
+    vertical-align: middle;
+}
+
+#campaigns-table-container .wp-list-table tr:last-child td {
+    border-bottom: none;
+}
+
+#campaigns-table-container .wp-list-table tr:hover {
+    background: #f6f7f7;
+}
+
+/* 성과 지표 색상 */
+.open-rate {
+    color: #00a32a;
+    font-weight: 600;
+}
+
+.click-rate {
+    color: #d63638;
+    font-weight: 600;
+}
+
+/* =============================================================================
+   내보내기 섹션 스타일
+   ========================================================================== */
+
+.ainl-export-section {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 25px;
+    margin: 30px 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ainl-export-section h2 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    color: #1d2327;
+}
+
+.ainl-export-section .button {
+    margin-right: 10px;
+    margin-bottom: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.ainl-export-section .button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.ainl-export-section .button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* =============================================================================
+   로딩 및 에러 상태 스타일
+   ========================================================================== */
+
+.ainl-loading-spinner {
+    text-align: center;
+    padding: 40px 20px;
+    color: #646970;
+}
+
+.ainl-loading-spinner .spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f0f0f1;
+    border-top: 4px solid #007cba;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.ainl-error-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #d63638;
+}
+
+.ainl-error-message .retry-btn {
+    margin-top: 15px;
+    background: #d63638;
+    border-color: #d63638;
+    color: #fff;
+}
+
+.ainl-error-message .retry-btn:hover {
+    background: #b32d2e;
+    border-color: #b32d2e;
+}
+
+/* =============================================================================
+   반응형 디자인
+   ========================================================================== */
+
+/* 태블릿 */
+@media screen and (max-width: 1024px) {
+    .ainl-charts-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .ainl-stats-overview {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .ainl-stat-number {
+        font-size: 28px;
+    }
+}
+
+/* 모바일 */
+@media screen and (max-width: 768px) {
+    .ainl-stats-overview {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .ainl-stat-card {
+        padding: 15px;
+    }
+    
+    .ainl-stat-number {
+        font-size: 24px;
+    }
+    
+    .ainl-chart-section {
+        padding: 15px;
+    }
+    
+    .ainl-export-section {
+        padding: 15px;
+    }
+    
+    .ainl-export-section .button {
+        display: block;
+        width: 100%;
+        margin-right: 0;
+        text-align: center;
+    }
+    
+    /* 테이블 반응형 */
+    #campaigns-table-container {
+        overflow-x: auto;
+    }
+    
+    #campaigns-table-container table {
+        min-width: 600px;
+    }
+    
+    #campaigns-table-container .wp-list-table th,
+    #campaigns-table-container .wp-list-table td {
+        padding: 8px 6px;
+        font-size: 13px;
+    }
+}
+
+/* 작은 모바일 */
+@media screen and (max-width: 480px) {
+    .ainl-stat-card h3 {
+        font-size: 12px;
+    }
+    
+    .ainl-stat-number {
+        font-size: 20px;
+    }
+    
+    .ainl-chart-section h2 {
+        font-size: 16px;
+    }
+    
+    .ainl-export-section h2 {
+        font-size: 16px;
+    }
+}
+
+/* =============================================================================
+   프린트 스타일
+   ========================================================================== */
+
+@media print {
+    .ainl-export-section,
+    .button,
+    .retry-btn {
+        display: none;
+    }
+    
+    .ainl-stats-overview {
+        grid-template-columns: repeat(4, 1fr);
+        page-break-inside: avoid;
+    }
+    
+    .ainl-charts-container {
+        grid-template-columns: 1fr;
+        page-break-inside: avoid;
+    }
+    
+    .ainl-chart-section {
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    #campaigns-table-container {
+        page-break-inside: avoid;
+    }
+}
+
+/* =============================================================================
+   접근성 개선
+   ========================================================================== */
+
+/* 고대비 모드 지원 */
+@media (prefers-contrast: high) {
+    .ainl-stat-card {
+        border: 2px solid #000;
+    }
+    
+    .ainl-stat-number {
+        color: #000;
+        font-weight: 900;
+    }
+    
+    .ainl-chart-section {
+        border: 2px solid #000;
+    }
+}
+
+/* 움직임 감소 모드 지원 */
+@media (prefers-reduced-motion: reduce) {
+    .ainl-stat-card,
+    .ainl-stat-number,
+    .button {
+        transition: none;
+    }
+    
+    .ainl-stat-card:hover {
+        transform: none;
+    }
+    
+    .ainl-loading-spinner .spinner {
+        animation: none;
+    }
+}
+
+/* =============================================================================
+   포커스 스타일 (키보드 접근성)
+   ========================================================================== */
+
+.button:focus,
+.retry-btn:focus {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+/* =============================================================================
+   다크 모드 지원 (향후 확장)
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    .ainl-stat-card,
+    .ainl-chart-section,
+    .ainl-export-section,
+    #campaigns-table-container {
+        background: #1e1e1e;
+        border-color: #404040;
+        color: #ffffff;
+    }
+    
+    .ainl-stat-card h3 {
+        color: #b0b0b0;
+    }
+    
+    .ainl-stat-number {
+        color: #ffffff;
+    }
+    
+    .ainl-chart-section h2,
+    .ainl-export-section h2 {
+        color: #ffffff;
+        border-bottom-color: #404040;
+    }
+    
+    #campaigns-table-container .wp-list-table th {
+        background: #2d2d2d;
+        color: #ffffff;
+        border-bottom-color: #404040;
+    }
+    
+    #campaigns-table-container .wp-list-table td {
+        border-bottom-color: #404040;
+    }
+    
+    #campaigns-table-container .wp-list-table tr:hover {
+        background: #2d2d2d;
+    }
+} 

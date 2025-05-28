@@ -174,6 +174,9 @@ class AI_Newsletter_Generator_Pro {
         // 구독 폼 시스템 초기화
         AINL_Subscription_Form::get_instance();
         
+        // 통계 시스템 초기화
+        AINL_Statistics::get_instance();
+        
         // GDPR 컴플라이언스 시스템 초기화
         AINL_GDPR::get_instance();
         
