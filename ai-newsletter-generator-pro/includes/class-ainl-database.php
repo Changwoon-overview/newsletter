@@ -33,6 +33,8 @@ class AINL_Database {
         self::create_templates_table();
         self::create_campaigns_table();
         self::create_statistics_table();
+        self::create_email_queue_table();
+        self::create_email_logs_table();
         
         // 데이터베이스 버전 저장
         update_option('ainl_db_version', self::DB_VERSION);
@@ -260,6 +262,77 @@ class AINL_Database {
     }
     
     /**
+     * 이메일 큐 테이블 생성
+     * 이메일 발송을 위한 큐 정보를 저장합니다.
+     */
+    private static function create_email_queue_table() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'ainl_email_queue';
+        
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE $table_name (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            to_email varchar(255) NOT NULL,
+            subject varchar(500) NOT NULL,
+            message longtext NOT NULL,
+            headers longtext DEFAULT '',
+            attachments longtext DEFAULT '',
+            priority enum('high', 'normal', 'low') DEFAULT 'normal',
+            status enum('pending', 'sending', 'sent', 'failed') DEFAULT 'pending',
+            attempts int(11) DEFAULT 0,
+            max_attempts int(11) DEFAULT 3,
+            scheduled_at datetime DEFAULT CURRENT_TIMESTAMP,
+            last_attempt_at datetime DEFAULT NULL,
+            sent_at datetime DEFAULT NULL,
+            error_message text DEFAULT '',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY to_email (to_email),
+            KEY status (status),
+            KEY priority (priority),
+            KEY scheduled_at (scheduled_at),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+        
+        dbDelta($sql);
+    }
+    
+    /**
+     * 이메일 로그 테이블 생성
+     * 이메일 발송 로그를 저장합니다.
+     */
+    private static function create_email_logs_table() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'ainl_email_logs';
+        
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE $table_name (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            queue_id bigint(20) unsigned DEFAULT 0,
+            to_email varchar(255) NOT NULL,
+            subject varchar(500) NOT NULL,
+            status enum('success', 'failed', 'bounced', 'opened', 'clicked') NOT NULL,
+            attempts int(11) DEFAULT 1,
+            error_message text DEFAULT '',
+            ip_address varchar(45) DEFAULT '',
+            user_agent text DEFAULT '',
+            sent_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY queue_id (queue_id),
+            KEY to_email (to_email),
+            KEY status (status),
+            KEY sent_at (sent_at)
+        ) $charset_collate;";
+        
+        dbDelta($sql);
+    }
+    
+    /**
      * 초기 데이터 삽입
      * 기본 카테고리와 템플릿을 생성합니다.
      */
@@ -463,6 +536,8 @@ class AINL_Database {
         global $wpdb;
         
         $tables = array(
+            $wpdb->prefix . 'ainl_email_logs',
+            $wpdb->prefix . 'ainl_email_queue',
             $wpdb->prefix . 'ainl_statistics',
             $wpdb->prefix . 'ainl_subscriber_categories',
             $wpdb->prefix . 'ainl_campaigns',

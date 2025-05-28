@@ -26,6 +26,11 @@ class AINL_Admin {
         add_action('wp_ajax_ainl_bulk_action_subscribers', array($this, 'ajax_bulk_action_subscribers'));
         add_action('wp_ajax_ainl_import_subscribers', array($this, 'ajax_import_subscribers'));
         add_action('wp_ajax_ainl_export_subscribers', array($this, 'ajax_export_subscribers'));
+        add_action('wp_ajax_ainl_test_smtp', array($this, 'ajax_test_smtp'));
+        add_action('wp_ajax_ainl_send_test_email', array($this, 'ajax_send_test_email'));
+        add_action('wp_ajax_ainl_clear_email_queue', array($this, 'ajax_clear_email_queue'));
+        add_action('wp_ajax_ainl_process_email_queue', array($this, 'ajax_process_email_queue'));
+        add_action('wp_ajax_ainl_refresh_queue_status', array($this, 'ajax_refresh_queue_status'));
     }
     
     /**
@@ -499,57 +504,264 @@ class AINL_Admin {
         
         $this->render_page_header('설정', '플러그인 기본 설정 및 구성');
         
-        // 설정 저장 메시지 표시
-        if (isset($_GET['settings-updated'])) {
+        // 설정 저장 처리
+        if (isset($_POST['submit']) && wp_verify_nonce($_POST['ainl_settings_nonce'], 'ainl_settings_save')) {
+            $this->save_settings();
             echo '<div class="notice notice-success is-dismissible"><p>설정이 저장되었습니다.</p></div>';
         }
+        
+        // 현재 설정 로드
+        $settings = get_option('ainl_settings', array());
+        
+        // 이메일 매니저 인스턴스
+        $email_manager = AINL_Email_Manager::get_instance();
+        $queue_status = $email_manager->get_queue_status();
         ?>
         <div class="ainl-settings">
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('ainl_settings_group');
-                do_settings_sections('ainl_settings');
-                submit_button('설정 저장');
-                ?>
+            <!-- 탭 네비게이션 -->
+            <div class="ainl-tabs">
+                <ul class="ainl-tab-nav">
+                    <li><a href="#general" class="ainl-tab-link active">일반 설정</a></li>
+                    <li><a href="#smtp" class="ainl-tab-link">SMTP 설정</a></li>
+                    <li><a href="#email-queue" class="ainl-tab-link">이메일 큐</a></li>
+                    <li><a href="#tests" class="ainl-tab-link">테스트</a></li>
+                </ul>
+            </div>
+            
+            <form method="post" action="">
+                <?php wp_nonce_field('ainl_settings_save', 'ainl_settings_nonce'); ?>
+                
+                <!-- 일반 설정 탭 -->
+                <div id="general" class="ainl-tab-content active">
+                    <h3>AI API 설정</h3>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">OpenAI API 키</th>
+                            <td>
+                                <input type="password" name="openai_api_key" value="<?php echo esc_attr(isset($settings['openai_api_key']) ? $settings['openai_api_key'] : ''); ?>" class="regular-text" />
+                                <p class="description">OpenAI GPT API 키를 입력하세요.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Claude API 키</th>
+                            <td>
+                                <input type="password" name="claude_api_key" value="<?php echo esc_attr(isset($settings['claude_api_key']) ? $settings['claude_api_key'] : ''); ?>" class="regular-text" />
+                                <p class="description">Anthropic Claude API 키를 입력하세요.</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <h3>콘텐츠 설정</h3>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">날짜 범위 (일)</th>
+                            <td>
+                                <input type="number" name="content_date_range" value="<?php echo esc_attr(isset($settings['content_date_range']) ? $settings['content_date_range'] : '7'); ?>" min="1" max="30" />
+                                <p class="description">뉴스레터에 포함할 게시물의 날짜 범위를 설정합니다.</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">최대 게시물 수</th>
+                            <td>
+                                <input type="number" name="max_posts" value="<?php echo esc_attr(isset($settings['max_posts']) ? $settings['max_posts'] : '10'); ?>" min="1" max="50" />
+                                <p class="description">한 번의 뉴스레터에 포함될 최대 게시물 수입니다.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <!-- SMTP 설정 탭 -->
+                <div id="smtp" class="ainl-tab-content">
+                    <h3>SMTP 서버 설정</h3>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">SMTP 호스트</th>
+                            <td>
+                                <input type="text" name="smtp_host" value="<?php echo esc_attr(isset($settings['smtp_host']) ? $settings['smtp_host'] : ''); ?>" class="regular-text" />
+                                <p class="description">SMTP 서버 주소 (예: smtp.gmail.com)</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">SMTP 포트</th>
+                            <td>
+                                <input type="number" name="smtp_port" value="<?php echo esc_attr(isset($settings['smtp_port']) ? $settings['smtp_port'] : '587'); ?>" min="1" max="65535" />
+                                <p class="description">SMTP 포트 번호 (일반적으로 587 또는 465)</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">암호화</th>
+                            <td>
+                                <select name="smtp_encryption">
+                                    <option value="tls" <?php selected(isset($settings['smtp_encryption']) ? $settings['smtp_encryption'] : 'tls', 'tls'); ?>>TLS</option>
+                                    <option value="ssl" <?php selected(isset($settings['smtp_encryption']) ? $settings['smtp_encryption'] : 'tls', 'ssl'); ?>>SSL</option>
+                                    <option value="none" <?php selected(isset($settings['smtp_encryption']) ? $settings['smtp_encryption'] : 'tls', 'none'); ?>>없음</option>
+                                </select>
+                                <p class="description">SMTP 암호화 방식</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">사용자명</th>
+                            <td>
+                                <input type="text" name="smtp_username" value="<?php echo esc_attr(isset($settings['smtp_username']) ? $settings['smtp_username'] : ''); ?>" class="regular-text" />
+                                <p class="description">SMTP 인증 사용자명 (보통 이메일 주소)</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">비밀번호</th>
+                            <td>
+                                <input type="password" name="smtp_password" value="<?php echo esc_attr(isset($settings['smtp_password']) ? $settings['smtp_password'] : ''); ?>" class="regular-text" />
+                                <p class="description">SMTP 인증 비밀번호</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <h3>발신자 정보</h3>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">발신자 이름</th>
+                            <td>
+                                <input type="text" name="from_name" value="<?php echo esc_attr(isset($settings['from_name']) ? $settings['from_name'] : get_bloginfo('name')); ?>" class="regular-text" />
+                                <p class="description">이메일 발신자로 표시될 이름</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">발신자 이메일</th>
+                            <td>
+                                <input type="email" name="from_email" value="<?php echo esc_attr(isset($settings['from_email']) ? $settings['from_email'] : get_option('admin_email')); ?>" class="regular-text" />
+                                <p class="description">이메일 발신자 주소</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <h3>발송 설정</h3>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">발송 속도 제한</th>
+                            <td>
+                                <input type="number" name="email_rate_limit" value="<?php echo esc_attr(isset($settings['email_rate_limit']) ? $settings['email_rate_limit'] : '5'); ?>" min="1" max="100" />
+                                <span>이메일/초</span>
+                                <p class="description">초당 발송할 이메일 수 (서버 부하 방지)</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">배치 크기</th>
+                            <td>
+                                <input type="number" name="email_batch_size" value="<?php echo esc_attr(isset($settings['email_batch_size']) ? $settings['email_batch_size'] : '50'); ?>" min="1" max="500" />
+                                <span>이메일/배치</span>
+                                <p class="description">한 번에 처리할 이메일 수</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">최대 재시도 횟수</th>
+                            <td>
+                                <input type="number" name="email_max_attempts" value="<?php echo esc_attr(isset($settings['email_max_attempts']) ? $settings['email_max_attempts'] : '3'); ?>" min="1" max="10" />
+                                <span>회</span>
+                                <p class="description">발송 실패 시 재시도할 최대 횟수</p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <div class="ainl-smtp-test">
+                        <h3>SMTP 연결 테스트</h3>
+                        <p>SMTP 설정이 올바른지 확인하세요.</p>
+                        <button type="button" id="test-smtp" class="button">SMTP 연결 테스트</button>
+                        <button type="button" id="send-test-email" class="button">테스트 이메일 발송</button>
+                        <input type="email" id="test-email" placeholder="테스트 이메일 주소" class="regular-text" style="margin-left: 10px;" />
+                        <div id="smtp-test-result" style="margin-top: 10px;"></div>
+                    </div>
+                </div>
+                
+                <!-- 이메일 큐 탭 -->
+                <div id="email-queue" class="ainl-tab-content">
+                    <h3>이메일 큐 상태</h3>
+                    <div class="ainl-queue-stats">
+                        <div class="ainl-stat-card">
+                            <h4>대기 중</h4>
+                            <div class="ainl-stat-number pending"><?php echo $queue_status['pending']; ?></div>
+                        </div>
+                        <div class="ainl-stat-card">
+                            <h4>발송 중</h4>
+                            <div class="ainl-stat-number sending"><?php echo $queue_status['sending']; ?></div>
+                        </div>
+                        <div class="ainl-stat-card">
+                            <h4>발송 완료</h4>
+                            <div class="ainl-stat-number sent"><?php echo $queue_status['sent']; ?></div>
+                        </div>
+                        <div class="ainl-stat-card">
+                            <h4>발송 실패</h4>
+                            <div class="ainl-stat-number failed"><?php echo $queue_status['failed']; ?></div>
+                        </div>
+                        <div class="ainl-stat-card">
+                            <h4>전체</h4>
+                            <div class="ainl-stat-number total"><?php echo $queue_status['total']; ?></div>
+                        </div>
+                    </div>
+                    
+                    <div class="ainl-queue-actions">
+                        <h3>큐 관리</h3>
+                        <p>이메일 큐를 관리하고 정리할 수 있습니다.</p>
+                        <button type="button" id="process-queue" class="button">큐 즉시 처리</button>
+                        <button type="button" id="clear-queue" class="button">완료된 항목 정리</button>
+                        <button type="button" id="refresh-queue" class="button">상태 새로고침</button>
+                    </div>
+                    
+                    <div class="ainl-queue-help">
+                        <h4>이메일 큐 정보</h4>
+                        <ul>
+                            <li><strong>대기 중:</strong> 발송을 기다리는 이메일</li>
+                            <li><strong>발송 중:</strong> 현재 발송 처리 중인 이메일</li>
+                            <li><strong>발송 완료:</strong> 성공적으로 발송된 이메일</li>
+                            <li><strong>발송 실패:</strong> 최대 재시도 후에도 실패한 이메일</li>
+                        </ul>
+                        <p>이메일 큐는 자동으로 1분마다 처리됩니다. 수동으로 즉시 처리하려면 "큐 즉시 처리" 버튼을 클릭하세요.</p>
+                    </div>
+                </div>
+                
+                <!-- 테스트 탭 -->
+                <div id="tests" class="ainl-tab-content">
+                    <?php
+                    // 보안 테스트 실행
+                    if (isset($_GET['test_security']) && $_GET['test_security'] === '1') {
+                        $test_results = AINL_Security_Test::run_all_tests();
+                        AINL_Security_Test::display_test_results($test_results);
+                    } else {
+                        echo '<div class="ainl-test-section">';
+                        echo '<h3>보안 테스트</h3>';
+                        echo '<p>플러그인의 보안 시스템이 올바르게 작동하는지 확인할 수 있습니다.</p>';
+                        echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings&test_security=1') . '" class="button">보안 테스트 실행</a>';
+                        echo '</div>';
+                    }
+                    
+                    // 설정 테스트 실행
+                    if (isset($_GET['test_settings']) && $_GET['test_settings'] === '1') {
+                        $test_results = AINL_Settings_Test::run_all_tests();
+                        AINL_Settings_Test::display_test_results($test_results);
+                    } else {
+                        echo '<div class="ainl-test-section">';
+                        echo '<h3>설정 테스트</h3>';
+                        echo '<p>설정 시스템이 올바르게 작동하는지 확인할 수 있습니다.</p>';
+                        echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings&test_settings=1') . '" class="button">설정 테스트 실행</a>';
+                        echo '</div>';
+                    }
+                    
+                    // 게시물 수집 테스트 실행
+                    if (isset($_GET['test_post_collector']) && $_GET['test_post_collector'] === '1') {
+                        $test_results = AINL_Post_Collector_Test::run_all_tests();
+                        AINL_Post_Collector_Test::display_test_results($test_results);
+                    } else {
+                        echo '<div class="ainl-test-section">';
+                        echo '<h3>게시물 수집 테스트</h3>';
+                        echo '<p>WordPress 게시물 수집 시스템이 올바르게 작동하는지 확인할 수 있습니다.</p>';
+                        echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings&test_post_collector=1') . '" class="button">게시물 수집 테스트 실행</a>';
+                        echo '</div>';
+                    }
+                    ?>
+                </div>
+                
+                <p class="submit">
+                    <input type="submit" name="submit" id="submit" class="button-primary" value="설정 저장" />
+                </p>
             </form>
-            
-            <?php
-            // 보안 테스트 실행
-            if (isset($_GET['test_security']) && $_GET['test_security'] === '1') {
-                $test_results = AINL_Security_Test::run_all_tests();
-                AINL_Security_Test::display_test_results($test_results);
-            } else {
-                echo '<div class="ainl-test-section">';
-                echo '<h3>보안 테스트</h3>';
-                echo '<p>플러그인의 보안 시스템이 올바르게 작동하는지 확인할 수 있습니다.</p>';
-                echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings&test_security=1') . '" class="button">보안 테스트 실행</a>';
-                echo '</div>';
-            }
-            
-            // 설정 테스트 실행
-            if (isset($_GET['test_settings']) && $_GET['test_settings'] === '1') {
-                $test_results = AINL_Settings_Test::run_all_tests();
-                AINL_Settings_Test::display_test_results($test_results);
-            } else {
-                echo '<div class="ainl-test-section">';
-                echo '<h3>설정 테스트</h3>';
-                echo '<p>설정 시스템이 올바르게 작동하는지 확인할 수 있습니다.</p>';
-                echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings&test_settings=1') . '" class="button">설정 테스트 실행</a>';
-                echo '</div>';
-            }
-            
-            // 게시물 수집 테스트 실행
-            if (isset($_GET['test_post_collector']) && $_GET['test_post_collector'] === '1') {
-                $test_results = AINL_Post_Collector_Test::run_all_tests();
-                AINL_Post_Collector_Test::display_test_results($test_results);
-            } else {
-                echo '<div class="ainl-test-section">';
-                echo '<h3>게시물 수집 테스트</h3>';
-                echo '<p>WordPress 게시물 수집 시스템이 올바르게 작동하는지 확인할 수 있습니다.</p>';
-                echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings&test_post_collector=1') . '" class="button">게시물 수집 테스트 실행</a>';
-                echo '</div>';
-            }
-            ?>
             
             <div class="ainl-settings-help">
                 <h3>도움말</h3>
@@ -579,6 +791,111 @@ class AINL_Admin {
         </div>
         
         <style>
+        .ainl-tabs {
+            margin-bottom: 20px;
+        }
+        
+        .ainl-tab-nav {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            border-bottom: 1px solid #ccc;
+        }
+        
+        .ainl-tab-nav li {
+            display: inline-block;
+            margin: 0;
+        }
+        
+        .ainl-tab-link {
+            display: block;
+            padding: 10px 20px;
+            text-decoration: none;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background: #f1f1f1;
+            color: #333;
+        }
+        
+        .ainl-tab-link.active {
+            background: #fff;
+            border-color: #ccc;
+            border-bottom: 1px solid #fff;
+            margin-bottom: -1px;
+        }
+        
+        .ainl-tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+        
+        .ainl-tab-content.active {
+            display: block;
+        }
+        
+        .ainl-queue-stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .ainl-stat-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: center;
+            min-width: 120px;
+            flex: 1;
+        }
+        
+        .ainl-stat-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .ainl-stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .ainl-stat-number.pending { color: #f56500; }
+        .ainl-stat-number.sending { color: #0073aa; }
+        .ainl-stat-number.sent { color: #46b450; }
+        .ainl-stat-number.failed { color: #dc3232; }
+        .ainl-stat-number.total { color: #333; }
+        
+        .ainl-queue-actions {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .ainl-queue-actions button {
+            margin-right: 10px;
+        }
+        
+        .ainl-queue-help {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+        }
+        
+        .ainl-smtp-test {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f0f8ff;
+            border: 1px solid #007cba;
+            border-radius: 4px;
+        }
+        
         .ainl-test-section {
             margin: 20px 0;
             padding: 15px;
@@ -617,34 +934,56 @@ class AINL_Admin {
         .ainl-help-section li {
             margin-bottom: 5px;
         }
+        
+        #smtp-test-result {
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        #smtp-test-result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        #smtp-test-result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
         </style>
         <?php
         $this->render_page_footer();
     }
     
     /**
-     * 페이지 헤더 렌더링
+     * 설정 저장
      */
-    private function render_page_header($title, $description = '') {
-        ?>
-        <div class="wrap ainl-admin-page">
-            <h1 class="ainl-page-title">
-                <span class="ainl-icon"></span>
-                <?php echo esc_html($title); ?>
-            </h1>
-            <?php if ($description): ?>
-                <p class="ainl-page-description"><?php echo esc_html($description); ?></p>
-            <?php endif; ?>
-        <?php
-    }
-    
-    /**
-     * 페이지 푸터 렌더링
-     */
-    private function render_page_footer() {
-        ?>
-        </div>
-        <?php
+    private function save_settings() {
+        $settings = array();
+        
+        // 일반 설정
+        $settings['openai_api_key'] = sanitize_text_field($_POST['openai_api_key']);
+        $settings['claude_api_key'] = sanitize_text_field($_POST['claude_api_key']);
+        $settings['content_date_range'] = intval($_POST['content_date_range']);
+        $settings['max_posts'] = intval($_POST['max_posts']);
+        
+        // SMTP 설정
+        $settings['smtp_host'] = sanitize_text_field($_POST['smtp_host']);
+        $settings['smtp_port'] = intval($_POST['smtp_port']);
+        $settings['smtp_encryption'] = sanitize_text_field($_POST['smtp_encryption']);
+        $settings['smtp_username'] = sanitize_text_field($_POST['smtp_username']);
+        $settings['smtp_password'] = sanitize_text_field($_POST['smtp_password']);
+        $settings['from_name'] = sanitize_text_field($_POST['from_name']);
+        $settings['from_email'] = sanitize_email($_POST['from_email']);
+        
+        // 발송 설정
+        $settings['email_rate_limit'] = intval($_POST['email_rate_limit']);
+        $settings['email_batch_size'] = intval($_POST['email_batch_size']);
+        $settings['email_max_attempts'] = intval($_POST['email_max_attempts']);
+        
+        update_option('ainl_settings', $settings);
     }
     
     /**
@@ -964,9 +1303,109 @@ class AINL_Admin {
             $file_url = str_replace($upload_dir['path'], $upload_dir['url'], $file_path);
             
             wp_send_json_success(array(
-                'message' => 'CSV 파일이 성공적으로 생성되었습니다.',
-                'download_url' => $file_url
+                'file_url' => $file_url,
+                'message' => '구독자 목록이 성공적으로 내보내졌습니다.'
             ));
         }
+    }
+    
+    /**
+     * AJAX: SMTP 연결 테스트
+     */
+    public function ajax_test_smtp() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $email_manager = AINL_Email_Manager::get_instance();
+        $result = $email_manager->test_smtp_connection();
+        
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result['message']);
+        }
+    }
+    
+    /**
+     * AJAX: 테스트 이메일 발송
+     */
+    public function ajax_send_test_email() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $to_email = sanitize_email($_POST['email']);
+        
+        if (!is_email($to_email)) {
+            wp_send_json_error('유효하지 않은 이메일 주소입니다.');
+        }
+        
+        $email_manager = AINL_Email_Manager::get_instance();
+        $result = $email_manager->send_test_email($to_email);
+        
+        if ($result['success']) {
+            wp_send_json_success(array(
+                'message' => '테스트 이메일이 성공적으로 발송되었습니다.'
+            ));
+        } else {
+            wp_send_json_error($result['message']);
+        }
+    }
+    
+    /**
+     * AJAX: 이메일 큐 정리
+     */
+    public function ajax_clear_email_queue() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $email_manager = AINL_Email_Manager::get_instance();
+        $deleted = $email_manager->cleanup_queue();
+        
+        wp_send_json_success(array(
+            'message' => $deleted . '개의 이메일 항목이 정리되었습니다.'
+        ));
+    }
+    
+    /**
+     * AJAX: 이메일 큐 즉시 처리
+     */
+    public function ajax_process_email_queue() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $email_manager = AINL_Email_Manager::get_instance();
+        $email_manager->process_email_queue();
+        
+        wp_send_json_success(array(
+            'message' => '이메일 큐가 처리되었습니다.'
+        ));
+    }
+    
+    /**
+     * AJAX: 큐 상태 새로고침
+     */
+    public function ajax_refresh_queue_status() {
+        check_ajax_referer('ainl_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $email_manager = AINL_Email_Manager::get_instance();
+        $queue_status = $email_manager->get_queue_status();
+        
+        wp_send_json_success($queue_status);
     }
 } 

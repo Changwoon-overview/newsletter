@@ -71,6 +71,9 @@ class AI_Newsletter_Generator_Pro {
         // 플러그인 로드 후 초기화
         add_action('plugins_loaded', array($this, 'init'));
         
+        // 크론 스케줄 추가
+        add_filter('cron_schedules', array($this, 'add_cron_schedules'));
+        
         // 관리자 초기화
         if (is_admin()) {
             add_action('admin_init', array($this, 'admin_init'));
@@ -159,6 +162,9 @@ class AI_Newsletter_Generator_Pro {
         // 구독자 관리자 초기화
         new AINL_Subscriber_Manager();
         
+        // 이메일 매니저 초기화
+        new AINL_Email_Manager();
+        
         // 템플릿 관리자 초기화
         new AINL_Template_Manager();
         
@@ -171,6 +177,35 @@ class AI_Newsletter_Generator_Pro {
         // 각 컴포넌트들은 후속 작업에서 구현될 예정
         // - AI 엔진
         // - 이메일 시스템 등
+    }
+    
+    /**
+     * 사용자 정의 크론 스케줄 추가
+     * 이메일 큐 처리를 위한 매분 실행 스케줄을 추가합니다.
+     * 
+     * @param array $schedules 기존 크론 스케줄 배열
+     * @return array 수정된 크론 스케줄 배열
+     */
+    public function add_cron_schedules($schedules) {
+        // 매분 실행 스케줄 추가
+        $schedules['every_minute'] = array(
+            'interval' => 60, // 60초 = 1분
+            'display'  => __('Every Minute', 'ai-newsletter-generator-pro')
+        );
+        
+        // 5분마다 실행 스케줄 추가
+        $schedules['every_five_minutes'] = array(
+            'interval' => 300, // 300초 = 5분
+            'display'  => __('Every 5 Minutes', 'ai-newsletter-generator-pro')
+        );
+        
+        // 15분마다 실행 스케줄 추가
+        $schedules['every_fifteen_minutes'] = array(
+            'interval' => 900, // 900초 = 15분
+            'display'  => __('Every 15 Minutes', 'ai-newsletter-generator-pro')
+        );
+        
+        return $schedules;
     }
     
     /**

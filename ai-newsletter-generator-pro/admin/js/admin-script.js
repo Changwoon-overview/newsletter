@@ -11,6 +11,12 @@ jQuery(document).ready(function($) {
     // 템플릿 관리 기능 초기화
     initTemplateManagement();
     
+    // SMTP 설정 기능 초기화
+    initSMTPSettings();
+    
+    // 탭 기능 초기화
+    initTabs();
+    
     /**
      * 구독자 관리 기능 초기화
      */
@@ -463,4 +469,182 @@ jQuery(document).ready(function($) {
         window.location.href = `${baseUrl}?page=ainl-create-newsletter&template=${templateId}`;
     };
     
+    /**
+     * 탭 기능 초기화
+     */
+    function initTabs() {
+        $('.ainl-tab-link').click(function(e) {
+            e.preventDefault();
+            
+            const targetTab = $(this).attr('href');
+            
+            // 모든 탭 비활성화
+            $('.ainl-tab-link').removeClass('active');
+            $('.ainl-tab-content').removeClass('active');
+            
+            // 선택된 탭 활성화
+            $(this).addClass('active');
+            $(targetTab).addClass('active');
+        });
+    }
+    
+    /**
+     * SMTP 설정 기능 초기화
+     */
+    function initSMTPSettings() {
+        
+        // SMTP 연결 테스트 버튼
+        $('#test-smtp').click(function() {
+            const button = $(this);
+            const resultDiv = $('#smtp-test-result');
+            
+            button.prop('disabled', true).text('테스트 중...');
+            resultDiv.removeClass('success error').hide();
+            
+            $.post(ainl_ajax.ajax_url, {
+                action: 'ainl_test_smtp',
+                nonce: ainl_ajax.nonce
+            }, function(response) {
+                button.prop('disabled', false).text('SMTP 연결 테스트');
+                
+                if (response.success) {
+                    resultDiv.addClass('success').html('✅ ' + response.data.message).show();
+                } else {
+                    resultDiv.addClass('error').html('❌ ' + response.data).show();
+                }
+            }).fail(function() {
+                button.prop('disabled', false).text('SMTP 연결 테스트');
+                resultDiv.addClass('error').html('❌ 연결 테스트 중 오류가 발생했습니다.').show();
+            });
+        });
+        
+        // 테스트 이메일 발송 버튼
+        $('#send-test-email').click(function() {
+            const button = $(this);
+            const emailInput = $('#test-email');
+            const resultDiv = $('#smtp-test-result');
+            const email = emailInput.val().trim();
+            
+            if (!email) {
+                alert('테스트 이메일 주소를 입력해주세요.');
+                emailInput.focus();
+                return;
+            }
+            
+            if (!isValidEmail(email)) {
+                alert('유효한 이메일 주소를 입력해주세요.');
+                emailInput.focus();
+                return;
+            }
+            
+            button.prop('disabled', true).text('발송 중...');
+            resultDiv.removeClass('success error').hide();
+            
+            $.post(ainl_ajax.ajax_url, {
+                action: 'ainl_send_test_email',
+                email: email,
+                nonce: ainl_ajax.nonce
+            }, function(response) {
+                button.prop('disabled', false).text('테스트 이메일 발송');
+                
+                if (response.success) {
+                    resultDiv.addClass('success').html('✅ ' + response.data.message).show();
+                    emailInput.val(''); // 성공 시 입력 필드 초기화
+                } else {
+                    resultDiv.addClass('error').html('❌ ' + response.data).show();
+                }
+            }).fail(function() {
+                button.prop('disabled', false).text('테스트 이메일 발송');
+                resultDiv.addClass('error').html('❌ 테스트 이메일 발송 중 오류가 발생했습니다.').show();
+            });
+        });
+        
+        // 큐 즉시 처리 버튼
+        $('#process-queue').click(function() {
+            const button = $(this);
+            
+            button.prop('disabled', true).text('처리 중...');
+            
+            $.post(ainl_ajax.ajax_url, {
+                action: 'ainl_process_email_queue',
+                nonce: ainl_ajax.nonce
+            }, function(response) {
+                button.prop('disabled', false).text('큐 즉시 처리');
+                
+                if (response.success) {
+                    alert('✅ ' + response.data.message);
+                    refreshQueueStatus(); // 상태 새로고침
+                } else {
+                    alert('❌ ' + response.data);
+                }
+            }).fail(function() {
+                button.prop('disabled', false).text('큐 즉시 처리');
+                alert('❌ 큐 처리 중 오류가 발생했습니다.');
+            });
+        });
+        
+        // 큐 정리 버튼
+        $('#clear-queue').click(function() {
+            if (!confirm('완료된 이메일 항목을 정리하시겠습니까?')) {
+                return;
+            }
+            
+            const button = $(this);
+            
+            button.prop('disabled', true).text('정리 중...');
+            
+            $.post(ainl_ajax.ajax_url, {
+                action: 'ainl_clear_email_queue',
+                nonce: ainl_ajax.nonce
+            }, function(response) {
+                button.prop('disabled', false).text('완료된 항목 정리');
+                
+                if (response.success) {
+                    alert('✅ ' + response.data.message);
+                    refreshQueueStatus(); // 상태 새로고침
+                } else {
+                    alert('❌ ' + response.data);
+                }
+            }).fail(function() {
+                button.prop('disabled', false).text('완료된 항목 정리');
+                alert('❌ 큐 정리 중 오류가 발생했습니다.');
+            });
+        });
+        
+        // 큐 상태 새로고침 버튼
+        $('#refresh-queue').click(function() {
+            refreshQueueStatus();
+        });
+    }
+    
+    /**
+     * 큐 상태 새로고침
+     */
+    function refreshQueueStatus() {
+        const button = $('#refresh-queue');
+        
+        button.prop('disabled', true).text('새로고침 중...');
+        
+        $.post(ainl_ajax.ajax_url, {
+            action: 'ainl_refresh_queue_status',
+            nonce: ainl_ajax.nonce
+        }, function(response) {
+            button.prop('disabled', false).text('상태 새로고침');
+            
+            if (response.success) {
+                // 큐 상태 업데이트
+                const data = response.data;
+                $('.ainl-stat-number.pending').text(data.pending);
+                $('.ainl-stat-number.sending').text(data.sending);
+                $('.ainl-stat-number.sent').text(data.sent);
+                $('.ainl-stat-number.failed').text(data.failed);
+                $('.ainl-stat-number.total').text(data.total);
+            } else {
+                alert('❌ 상태 새로고침 중 오류가 발생했습니다.');
+            }
+        }).fail(function() {
+            button.prop('disabled', false).text('상태 새로고침');
+            alert('❌ 상태 새로고침 중 오류가 발생했습니다.');
+        });
+    }
 }); 
