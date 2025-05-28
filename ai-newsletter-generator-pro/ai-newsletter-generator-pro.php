@@ -153,6 +153,11 @@ class AI_Newsletter_Generator_Pro {
      * 플러그인 컴포넌트 초기화
      */
     private function init_plugin_components() {
+        // WordPress 환경 체크
+        if (!function_exists('add_action') || !function_exists('is_admin')) {
+            return;
+        }
+        
         // 기본 시스템만 우선 초기화 (오류 방지)
         try {
             // 보안 시스템 초기화 (최우선)
@@ -205,11 +210,9 @@ class AI_Newsletter_Generator_Pro {
                 AINL_AI_Engine::get_instance();
             }
             
-            // 관리자 인터페이스 초기화
+            // 관리자 인터페이스 초기화 (지연 로딩)
             if (is_admin()) {
-                if (class_exists('AINL_Admin')) {
-                    new AINL_Admin();
-                }
+                add_action('admin_menu', array($this, 'init_admin_components'));
                 if (class_exists('AINL_Settings')) {
                     new AINL_Settings();
                 }
@@ -217,14 +220,26 @@ class AI_Newsletter_Generator_Pro {
             
         } catch (Exception $e) {
             // 오류 로깅 (WordPress 오류 로그에 기록)
-            error_log('AI Newsletter Generator Pro 초기화 오류: ' . $e->getMessage());
+            if (function_exists('error_log')) {
+                error_log('AI Newsletter Generator Pro 초기화 오류: ' . $e->getMessage());
+            }
             
             // 관리자에게 알림 표시
-            if (is_admin()) {
+            if (function_exists('is_admin') && is_admin() && function_exists('add_action')) {
                 add_action('admin_notices', function() use ($e) {
-                    echo '<div class="notice notice-error"><p><strong>AI Newsletter Generator Pro:</strong> 플러그인 초기화 중 오류가 발생했습니다. 오류: ' . esc_html($e->getMessage()) . '</p></div>';
+                    $message = function_exists('esc_html') ? esc_html($e->getMessage()) : $e->getMessage();
+                    echo '<div class="notice notice-error"><p><strong>AI Newsletter Generator Pro:</strong> 플러그인 초기화 중 오류가 발생했습니다. 오류: ' . $message . '</p></div>';
                 });
             }
+        }
+    }
+    
+    /**
+     * 관리자 컴포넌트 지연 초기화
+     */
+    public function init_admin_components() {
+        if (class_exists('AINL_Admin') && function_exists('current_user_can') && current_user_can('manage_options')) {
+            new AINL_Admin();
         }
     }
     
