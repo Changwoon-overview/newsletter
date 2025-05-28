@@ -212,7 +212,11 @@ class AI_Newsletter_Generator_Pro {
             
             // 관리자 인터페이스 초기화 (지연 로딩)
             if (is_admin()) {
-                add_action('admin_menu', array($this, 'init_admin_components'));
+                // 관리자 메뉴는 AINL_Admin 클래스 내부에서 처리하므로 여기서는 클래스만 초기화
+                if (class_exists('AINL_Admin') && function_exists('current_user_can') && current_user_can('manage_options')) {
+                    new AINL_Admin();
+                }
+                
                 if (class_exists('AINL_Settings')) {
                     new AINL_Settings();
                 }
@@ -231,15 +235,6 @@ class AI_Newsletter_Generator_Pro {
                     echo '<div class="notice notice-error"><p><strong>AI Newsletter Generator Pro:</strong> 플러그인 초기화 중 오류가 발생했습니다. 오류: ' . $message . '</p></div>';
                 });
             }
-        }
-    }
-    
-    /**
-     * 관리자 컴포넌트 지연 초기화
-     */
-    public function init_admin_components() {
-        if (class_exists('AINL_Admin') && function_exists('current_user_can') && current_user_can('manage_options')) {
-            new AINL_Admin();
         }
     }
     
