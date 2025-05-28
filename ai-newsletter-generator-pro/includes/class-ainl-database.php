@@ -141,9 +141,7 @@ class AINL_Database {
             PRIMARY KEY (id),
             UNIQUE KEY subscriber_category (subscriber_id, category_id),
             KEY subscriber_id (subscriber_id),
-            KEY category_id (category_id),
-            FOREIGN KEY (subscriber_id) REFERENCES {$wpdb->prefix}ainl_subscribers(id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES {$wpdb->prefix}ainl_categories(id) ON DELETE CASCADE
+            KEY category_id (category_id)
         ) $charset_collate;";
         
         dbDelta($sql);
@@ -258,9 +256,7 @@ class AINL_Database {
             KEY subscriber_id (subscriber_id),
             KEY action (action),
             KEY timestamp (timestamp),
-            KEY campaign_subscriber (campaign_id, subscriber_id),
-            FOREIGN KEY (campaign_id) REFERENCES {$wpdb->prefix}ainl_campaigns(id) ON DELETE CASCADE,
-            FOREIGN KEY (subscriber_id) REFERENCES {$wpdb->prefix}ainl_subscribers(id) ON DELETE CASCADE
+            KEY campaign_subscriber (campaign_id, subscriber_id)
         ) $charset_collate;";
         
         dbDelta($sql);

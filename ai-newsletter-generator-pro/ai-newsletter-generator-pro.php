@@ -153,45 +153,79 @@ class AI_Newsletter_Generator_Pro {
      * 플러그인 컴포넌트 초기화
      */
     private function init_plugin_components() {
-        // 보안 시스템 초기화 (최우선)
-        new AINL_Security();
-        
-        // 데이터베이스 관리자 초기화
-        new AINL_Database();
-        
-        // 구독자 관리자 초기화
-        new AINL_Subscriber_Manager();
-        
-        // 이메일 매니저 초기화
-        new AINL_Email_Manager();
-        
-        // 템플릿 관리자 초기화
-        new AINL_Template_Manager();
-        
-        // 캠페인 관리자 초기화
-        new AINL_Campaign_Manager();
-        
-        // 구독 폼 시스템 초기화
-        AINL_Subscription_Form::get_instance();
-        
-        // 통계 시스템 초기화
-        AINL_Statistics::get_instance();
-        
-        // GDPR 컴플라이언스 시스템 초기화
-        AINL_GDPR::get_instance();
-        
-        // AI 엔진 초기화
-        AINL_AI_Engine::get_instance();
-        
-        // 관리자 인터페이스 초기화
-        if (is_admin()) {
-            new AINL_Admin();
-            new AINL_Settings();
+        // 기본 시스템만 우선 초기화 (오류 방지)
+        try {
+            // 보안 시스템 초기화 (최우선)
+            if (class_exists('AINL_Security')) {
+                new AINL_Security();
+            }
+            
+            // 데이터베이스 관리자 초기화
+            if (class_exists('AINL_Database')) {
+                new AINL_Database();
+            }
+            
+            // 구독자 관리자 초기화
+            if (class_exists('AINL_Subscriber_Manager')) {
+                new AINL_Subscriber_Manager();
+            }
+            
+            // 이메일 매니저 초기화
+            if (class_exists('AINL_Email_Manager')) {
+                new AINL_Email_Manager();
+            }
+            
+            // 템플릿 관리자 초기화
+            if (class_exists('AINL_Template_Manager')) {
+                new AINL_Template_Manager();
+            }
+            
+            // 캠페인 관리자 초기화
+            if (class_exists('AINL_Campaign_Manager')) {
+                new AINL_Campaign_Manager();
+            }
+            
+            // 구독 폼 시스템 초기화
+            if (class_exists('AINL_Subscription_Form')) {
+                AINL_Subscription_Form::get_instance();
+            }
+            
+            // 통계 시스템 초기화
+            if (class_exists('AINL_Statistics')) {
+                AINL_Statistics::get_instance();
+            }
+            
+            // GDPR 컴플라이언스 시스템 초기화
+            if (class_exists('AINL_GDPR')) {
+                AINL_GDPR::get_instance();
+            }
+            
+            // AI 엔진 초기화
+            if (class_exists('AINL_AI_Engine')) {
+                AINL_AI_Engine::get_instance();
+            }
+            
+            // 관리자 인터페이스 초기화
+            if (is_admin()) {
+                if (class_exists('AINL_Admin')) {
+                    new AINL_Admin();
+                }
+                if (class_exists('AINL_Settings')) {
+                    new AINL_Settings();
+                }
+            }
+            
+        } catch (Exception $e) {
+            // 오류 로깅 (WordPress 오류 로그에 기록)
+            error_log('AI Newsletter Generator Pro 초기화 오류: ' . $e->getMessage());
+            
+            // 관리자에게 알림 표시
+            if (is_admin()) {
+                add_action('admin_notices', function() use ($e) {
+                    echo '<div class="notice notice-error"><p><strong>AI Newsletter Generator Pro:</strong> 플러그인 초기화 중 오류가 발생했습니다. 오류: ' . esc_html($e->getMessage()) . '</p></div>';
+                });
+            }
         }
-        
-        // 각 컴포넌트들은 후속 작업에서 구현될 예정
-        // - AI 엔진
-        // - 이메일 시스템 등
     }
     
     /**
