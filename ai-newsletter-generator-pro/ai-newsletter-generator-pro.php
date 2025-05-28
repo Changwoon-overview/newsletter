@@ -301,13 +301,71 @@ class AI_Newsletter_Generator_Pro {
      * 플러그인 삭제 시 실행 (정적 메서드)
      */
     public static function uninstall() {
-        // 모든 플러그인 데이터 정리
-        // 이 부분은 나중에 구현될 예정
+        // 완전한 데이터 정리 (사용자 데이터 포함)
         
-        // 옵션 삭제
-        delete_option('ainl_plugin_activated');
-        delete_option('ainl_plugin_version');
-        delete_option('ainl_settings');
+        // deactivator를 통한 긴급 정리 실행
+        if (class_exists('AINL_Deactivator')) {
+            AINL_Deactivator::emergency_cleanup();
+        }
+        
+        // 모든 플러그인 옵션 삭제
+        $options_to_delete = array(
+            'ainl_plugin_activated',
+            'ainl_plugin_version',
+            'ainl_settings',
+            'ainl_db_version',
+            'ainl_api_keys',
+            'ainl_email_settings',
+            'ainl_template_settings',
+            'ainl_gdpr_settings',
+            'ainl_subscription_form_settings',
+            'ainl_campaign_defaults',
+            'ainl_activation_logs',
+            'ainl_plugin_deactivated_time',
+            'ainl_admin_notice_welcome',
+            'ainl_admin_notice_api_key_missing',
+            'ainl_admin_notice_database_update',
+            'ainl_admin_notice_dismissed',
+        );
+        
+        foreach ($options_to_delete as $option) {
+            delete_option($option);
+        }
+        
+        // 데이터베이스 테이블 삭제 (주의: 사용자 데이터 포함)
+        if (class_exists('AINL_Database')) {
+            // 테이블 삭제는 별도 확인이 필요할 수 있음
+            // AINL_Database::drop_all_tables(); // 구현 예정
+        }
+        
+        // 업로드된 파일들 정리
+        $upload_dir = wp_upload_dir();
+        $plugin_upload_dir = $upload_dir['basedir'] . '/ai-newsletter-files/';
+        if (is_dir($plugin_upload_dir)) {
+            // 재귀적으로 디렉토리 및 파일 삭제
+            self::recursive_rmdir($plugin_upload_dir);
+        }
+    }
+    
+    /**
+     * 디렉토리를 재귀적으로 삭제하는 헬퍼 메서드
+     */
+    private static function recursive_rmdir($dir) {
+        if (!is_dir($dir)) {
+            return false;
+        }
+        
+        $files = array_diff(scandir($dir), array('.', '..'));
+        foreach ($files as $file) {
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($path)) {
+                self::recursive_rmdir($path);
+            } else {
+                unlink($path);
+            }
+        }
+        
+        return rmdir($dir);
     }
 }
 

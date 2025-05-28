@@ -40,9 +40,12 @@ class AINL_Deactivator {
         // 플러그인에서 사용하는 cron 이벤트들
         $cron_events = array(
             'ainl_send_scheduled_newsletter',
+            'ainl_send_scheduled_campaign',
             'ainl_cleanup_old_logs',
             'ainl_update_statistics',
             'ainl_process_email_queue',
+            'ainl_cleanup_expired_data',
+            'ainl_daily_stats_aggregate',
         );
         
         foreach ($cron_events as $event) {
@@ -52,9 +55,13 @@ class AINL_Deactivator {
                 wp_unschedule_event($timestamp, $event);
             }
             
-            // 모든 인스턴스 제거
+            // 모든 인스턴스 제거 (인자가 있는 이벤트들도 모두 제거)
             wp_clear_scheduled_hook($event);
         }
+        
+        // 사용자 정의 스케줄도 제거
+        $custom_schedules = array('every_minute', 'every_five_minutes', 'every_fifteen_minutes');
+        // WordPress 자체적으로 등록된 스케줄은 제거할 필요 없음 (다른 플러그인이 사용할 수 있음)
     }
     
     /**
@@ -68,10 +75,15 @@ class AINL_Deactivator {
             'ainl_post_collection_cache',
             'ainl_template_cache',
             'ainl_subscriber_stats_cache',
+            'ainl_campaign_stats_cache',
+            'ainl_ai_usage_cache',
+            'ainl_email_queue_status',
         );
         
         foreach ($transients as $transient) {
             delete_transient($transient);
+            // 사이트 전체 transient도 정리
+            delete_site_transient($transient);
         }
         
         // 임시 파일 정리 (업로드된 CSV 파일 등)
@@ -79,6 +91,12 @@ class AINL_Deactivator {
         
         // 오래된 로그 데이터 정리
         self::cleanup_old_logs();
+        
+        // 사용자 메타 데이터 정리 (플러그인 관련)
+        self::cleanup_user_meta();
+        
+        // 관리자 알림 정리
+        self::cleanup_admin_notices();
     }
     
     /**
@@ -218,5 +236,47 @@ class AINL_Deactivator {
         
         // 비활성화 로그만 기록
         self::log_deactivation();
+    }
+    
+    /**
+     * 사용자 메타 데이터 정리
+     * 플러그인 관련 사용자 메타 데이터를 정리합니다.
+     */
+    private static function cleanup_user_meta() {
+        global $wpdb;
+        
+        // 플러그인 관련 사용자 메타 키들
+        $meta_keys = array(
+            'ainl_last_newsletter_view',
+            'ainl_subscription_preferences',
+            'ainl_email_frequency',
+            'ainl_dashboard_widgets_order',
+        );
+        
+        foreach ($meta_keys as $meta_key) {
+            $wpdb->delete(
+                $wpdb->usermeta,
+                array('meta_key' => $meta_key),
+                array('%s')
+            );
+        }
+    }
+    
+    /**
+     * 관리자 알림 정리
+     * 플러그인 관련 관리자 알림들을 정리합니다.
+     */
+    private static function cleanup_admin_notices() {
+        // 관리자 알림 관련 옵션들 정리
+        $notice_options = array(
+            'ainl_admin_notice_welcome',
+            'ainl_admin_notice_api_key_missing',
+            'ainl_admin_notice_database_update',
+            'ainl_admin_notice_dismissed',
+        );
+        
+        foreach ($notice_options as $option) {
+            delete_option($option);
+        }
     }
 } 
