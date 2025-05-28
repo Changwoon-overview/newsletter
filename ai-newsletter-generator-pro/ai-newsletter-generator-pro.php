@@ -147,8 +147,10 @@ class AI_Newsletter_Generator_Pro {
             // 크론 스케줄 추가
             add_filter('cron_schedules', array($this, 'add_cron_schedules'));
             
-            // 관리자 초기화 (is_admin() 함수 체크 후)
+            // 관리자 메뉴 직접 추가 (admin_init보다 빠르게)
             if (function_exists('is_admin') && is_admin()) {
+                add_action('admin_menu', array($this, 'add_admin_menu'));
+                add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
                 add_action('admin_init', array($this, 'admin_init'));
             }
             
@@ -237,16 +239,13 @@ class AI_Newsletter_Generator_Pro {
     public function admin_init() {
         try {
             // WordPress 관리자 함수 가용성 체크
-            if (!function_exists('add_options_page') || !function_exists('current_user_can')) {
+            if (!function_exists('current_user_can')) {
                 error_log('AINL Plugin: WordPress admin functions not available');
                 return;
             }
             
-            // 메뉴 추가
-            if (function_exists('add_action')) {
-                add_action('admin_menu', array($this, 'add_admin_menu'));
-                add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
-            }
+            // 기타 관리자 초기화 작업 (메뉴는 이미 init_hooks에서 처리됨)
+            // 설정 등록, 필드 등록 등 추가 관리자 초기화 작업
             
         } catch (Exception $e) {
             error_log('AINL Plugin Admin Init Error: ' . $e->getMessage());
@@ -267,21 +266,37 @@ class AI_Newsletter_Generator_Pro {
     }
     
     /**
-     * 관리자 메뉴 추가
+     * 관리자 메뉴 추가 (메인 메뉴에 표시)
      */
     public function add_admin_menu() {
-        if (!function_exists('add_options_page') || !function_exists('current_user_can')) {
+        if (!function_exists('add_menu_page') || !function_exists('current_user_can')) {
             return;
         }
         
         try {
-            add_options_page(
-                'AI Newsletter Generator Pro',
-                'AI Newsletter',
-                'manage_options',
-                'ai-newsletter-generator-pro',
-                array($this, 'admin_page')
+            // 메인 메뉴에 AI Newsletter 메뉴 추가
+            add_menu_page(
+                'AI Newsletter Generator Pro',           // 페이지 제목
+                'AI Newsletter',                         // 메뉴 제목
+                'manage_options',                        // 필요 권한
+                'ai-newsletter-generator-pro',           // 메뉴 슬러그
+                array($this, 'admin_page'),             // 콜백 함수
+                'dashicons-email-alt',                   // 아이콘 (이메일 아이콘)
+                30                                       // 메뉴 위치 (댓글 다음)
             );
+            
+            // 하위 메뉴 추가 (설정)
+            if (function_exists('add_submenu_page')) {
+                add_submenu_page(
+                    'ai-newsletter-generator-pro',      // 부모 메뉴 슬러그
+                    'Newsletter Settings',               // 페이지 제목
+                    'Settings',                          // 메뉴 제목
+                    'manage_options',                    // 필요 권한
+                    'ai-newsletter-settings',            // 메뉴 슬러그
+                    array($this, 'settings_page')       // 콜백 함수
+                );
+            }
+            
         } catch (Exception $e) {
             error_log('AINL Plugin Menu Error: ' . $e->getMessage());
         }
@@ -295,7 +310,9 @@ class AI_Newsletter_Generator_Pro {
             return;
         }
         
-        if ($hook !== 'settings_page_ai-newsletter-generator-pro') {
+        // AI Newsletter 메뉴 페이지들에서만 스크립트 로드
+        if ($hook !== 'toplevel_page_ai-newsletter-generator-pro' && 
+            $hook !== 'ai-newsletter_page_ai-newsletter-settings') {
             return;
         }
         
@@ -320,7 +337,7 @@ class AI_Newsletter_Generator_Pro {
     }
     
     /**
-     * 관리자 페이지 렌더링
+     * 관리자 메인 페이지 렌더링
      */
     public function admin_page() {
         if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
@@ -329,7 +346,59 @@ class AI_Newsletter_Generator_Pro {
         
         echo '<div class="wrap">';
         echo '<h1>AI Newsletter Generator Pro</h1>';
-        echo '<p>AI 뉴스레터 생성기 설정 페이지입니다.</p>';
+        echo '<div class="notice notice-info"><p><strong>환영합니다!</strong> AI Newsletter Generator Pro 플러그인이 성공적으로 활성화되었습니다.</p></div>';
+        echo '<div class="card">';
+        echo '<h2>플러그인 정보</h2>';
+        echo '<p>이 플러그인은 WordPress 게시물을 AI가 분석하여 자동으로 뉴스레터를 생성하고 발송하는 통합 솔루션입니다.</p>';
+        echo '<h3>주요 기능:</h3>';
+        echo '<ul>';
+        echo '<li>AI 기반 뉴스레터 자동 생성</li>';
+        echo '<li>구독자 관리 시스템</li>';
+        echo '<li>이메일 템플릿 관리</li>';
+        echo '<li>발송 스케줄링</li>';
+        echo '<li>성과 분석 및 통계</li>';
+        echo '</ul>';
+        echo '<p><a href="' . admin_url('admin.php?page=ai-newsletter-settings') . '" class="button button-primary">설정으로 이동</a></p>';
+        echo '</div>';
+        echo '</div>';
+    }
+    
+    /**
+     * 설정 페이지 렌더링
+     */
+    public function settings_page() {
+        if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+        
+        echo '<div class="wrap">';
+        echo '<h1>AI Newsletter Settings</h1>';
+        echo '<div class="card">';
+        echo '<h2>기본 설정</h2>';
+        echo '<form method="post" action="options.php">';
+        echo '<table class="form-table">';
+        echo '<tr>';
+        echo '<th scope="row">발송자 이름</th>';
+        echo '<td><input type="text" name="ainl_email_from_name" value="' . get_option('ainl_email_from_name', get_bloginfo('name')) . '" class="regular-text" /></td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th scope="row">발송자 이메일</th>';
+        echo '<td><input type="email" name="ainl_email_from_email" value="' . get_option('ainl_email_from_email', get_bloginfo('admin_email')) . '" class="regular-text" /></td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th scope="row">뉴스레터 발송 주기</th>';
+        echo '<td>';
+        echo '<select name="ainl_newsletter_frequency">';
+        $frequency = get_option('ainl_newsletter_frequency', 'weekly');
+        echo '<option value="weekly"' . selected($frequency, 'weekly', false) . '>주간</option>';
+        echo '<option value="monthly"' . selected($frequency, 'monthly', false) . '>월간</option>';
+        echo '</select>';
+        echo '</td>';
+        echo '</tr>';
+        echo '</table>';
+        echo '<p class="submit"><input type="submit" name="submit" class="button button-primary" value="설정 저장" /></p>';
+        echo '</form>';
+        echo '</div>';
         echo '</div>';
     }
     
