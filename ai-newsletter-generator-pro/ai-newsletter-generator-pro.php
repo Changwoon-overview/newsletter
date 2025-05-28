@@ -16,30 +16,52 @@
  * Network: false
  */
 
-// 직접 접근 방지 - 보안 강화
+// 직접 접근 방지 - 보안 강화 (WordPress 환경 체크 강화)
 if (!defined('ABSPATH')) {
+    // WordPress 환경이 아닌 경우 즉시 종료
+    header('HTTP/1.0 403 Forbidden');
     exit('Direct access not allowed.');
 }
 
 // WordPress 트러블슈팅 문서 권장사항: Headers already sent 오류 방지
 if (headers_sent()) {
+    error_log('AINL Plugin: Headers already sent, plugin loading aborted.');
+    return;
+}
+
+// WordPress 함수 가용성 체크 (critical error 방지)
+if (!function_exists('plugin_dir_path') || !function_exists('plugin_dir_url') || !function_exists('plugin_basename')) {
+    error_log('AINL Plugin: WordPress plugin functions not available, loading aborted.');
     return;
 }
 
 // PHP 메모리 제한 증가 - 500 오류 방지
-@ini_set('memory_limit', '512M');
-@ini_set('max_execution_time', 300);
+if (function_exists('ini_set')) {
+    @ini_set('memory_limit', '512M');
+    @ini_set('max_execution_time', 300);
+}
 
-// 플러그인 상수 정의
-define('AINL_PLUGIN_FILE', __FILE__);
-define('AINL_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('AINL_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('AINL_PLUGIN_VERSION', '1.0.0');
-define('AINL_PLUGIN_BASENAME', plugin_basename(__FILE__));
+// 플러그인 상수 정의 (WordPress 함수 가용성 확인 후)
+if (!defined('AINL_PLUGIN_FILE')) {
+    define('AINL_PLUGIN_FILE', __FILE__);
+}
+if (!defined('AINL_PLUGIN_DIR')) {
+    define('AINL_PLUGIN_DIR', plugin_dir_path(__FILE__));
+}
+if (!defined('AINL_PLUGIN_URL')) {
+    define('AINL_PLUGIN_URL', plugin_dir_url(__FILE__));
+}
+if (!defined('AINL_PLUGIN_VERSION')) {
+    define('AINL_PLUGIN_VERSION', '1.0.0');
+}
+if (!defined('AINL_PLUGIN_BASENAME')) {
+    define('AINL_PLUGIN_BASENAME', plugin_basename(__FILE__));
+}
 
 /**
  * AI Newsletter Generator Pro 메인 클래스
  * 플러그인의 초기화와 전체적인 관리를 담당합니다.
+ * WordPress 트러블슈팅 권장사항 적용: 안전한 초기화
  */
 class AI_Newsletter_Generator_Pro {
     
@@ -47,6 +69,11 @@ class AI_Newsletter_Generator_Pro {
      * 싱글톤 인스턴스
      */
     private static $instance = null;
+    
+    /**
+     * 플러그인 로딩 상태 추적
+     */
+    private $is_loaded = false;
     
     /**
      * 싱글톤 패턴으로 인스턴스 반환
@@ -60,91 +87,147 @@ class AI_Newsletter_Generator_Pro {
     
     /**
      * 생성자 - 플러그인 초기화
+     * WordPress 트러블슈팅 권장: 안전한 초기화
      */
     private function __construct() {
-        $this->init_hooks();
-        $this->load_dependencies();
+        try {
+            // WordPress 환경 재확인
+            if (!$this->is_wordpress_environment()) {
+                error_log('AINL Plugin: Invalid WordPress environment in constructor');
+                return;
+            }
+            
+            $this->init_hooks();
+            $this->load_dependencies();
+            $this->is_loaded = true;
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Constructor Error: ' . $e->getMessage());
+            $this->is_loaded = false;
+        }
+    }
+    
+    /**
+     * WordPress 환경 체크
+     * 
+     * @return bool WordPress 환경 여부
+     */
+    private function is_wordpress_environment() {
+        return defined('ABSPATH') && 
+               function_exists('add_action') && 
+               function_exists('register_activation_hook') &&
+               function_exists('plugin_dir_path');
     }
     
     /**
      * WordPress 훅 초기화
+     * 모든 WordPress 함수 호출을 안전하게 체크
      */
     private function init_hooks() {
-        // 플러그인 활성화/비활성화 훅
-        register_activation_hook(AINL_PLUGIN_FILE, array($this, 'activate'));
-        register_deactivation_hook(AINL_PLUGIN_FILE, array($this, 'deactivate'));
+        // WordPress 함수 가용성 체크
+        if (!function_exists('register_activation_hook') || 
+            !function_exists('register_deactivation_hook') || 
+            !function_exists('add_action') || 
+            !function_exists('add_filter')) {
+            error_log('AINL Plugin: WordPress hook functions not available');
+            return;
+        }
         
-        // 플러그인 삭제는 별도 uninstall.php 파일에서 처리 (WordPress 트러블슈팅 권장)
-        // register_uninstall_hook은 제거하고 uninstall.php 사용
-        
-        // 플러그인 로드 후 초기화
-        add_action('plugins_loaded', array($this, 'init'));
-        
-        // 크론 스케줄 추가
-        add_filter('cron_schedules', array($this, 'add_cron_schedules'));
-        
-        // 관리자 초기화
-        if (is_admin()) {
-            add_action('admin_init', array($this, 'admin_init'));
+        try {
+            // 플러그인 활성화/비활성화 훅
+            register_activation_hook(AINL_PLUGIN_FILE, array($this, 'activate'));
+            register_deactivation_hook(AINL_PLUGIN_FILE, array($this, 'deactivate'));
+            
+            // 플러그인 삭제는 별도 uninstall.php 파일에서 처리 (WordPress 트러블슈팅 권장)
+            // register_uninstall_hook은 제거하고 uninstall.php 사용
+            
+            // 플러그인 로드 후 초기화 (WordPress가 완전히 로드된 후)
+            add_action('plugins_loaded', array($this, 'init'), 10);
+            
+            // 크론 스케줄 추가
+            add_filter('cron_schedules', array($this, 'add_cron_schedules'));
+            
+            // 관리자 초기화 (is_admin() 함수 체크 후)
+            if (function_exists('is_admin') && is_admin()) {
+                add_action('admin_init', array($this, 'admin_init'));
+            }
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Hook Init Error: ' . $e->getMessage());
         }
     }
     
     /**
-     * 의존성 파일 로드
+     * 의존성 로드 (오토로더)
      */
     private function load_dependencies() {
-        // 오토로더 설정
-        spl_autoload_register(array($this, 'autoload'));
-        
-        // 핵심 클래스 로드
-        require_once AINL_PLUGIN_DIR . 'includes/class-ainl-activator.php';
-        require_once AINL_PLUGIN_DIR . 'includes/class-ainl-deactivator.php';
-        require_once AINL_PLUGIN_DIR . 'includes/class-ainl-database.php';
+        try {
+            // 자동 로더 실행
+            spl_autoload_register(array($this, 'autoloader'));
+            
+            // 필요한 파일들 포함
+            $required_files = array(
+                'includes/class-admin.php',
+                'includes/class-generator.php',
+                'includes/class-scheduler.php',
+                'includes/class-email.php'
+            );
+            
+            foreach ($required_files as $file) {
+                $file_path = AINL_PLUGIN_DIR . $file;
+                if (file_exists($file_path)) {
+                    require_once $file_path;
+                } else {
+                    error_log('AINL Plugin: Required file missing - ' . $file_path);
+                }
+            }
+        } catch (Exception $e) {
+            error_log('AINL Plugin Dependencies Error: ' . $e->getMessage());
+        }
     }
     
     /**
-     * 클래스 오토로더
-     * 클래스명을 기반으로 파일을 자동 로드합니다.
+     * 자동 로더
      */
-    public function autoload($class_name) {
-        // 플러그인 클래스만 처리
+    public function autoloader($class_name) {
         if (strpos($class_name, 'AINL_') !== 0) {
             return;
         }
         
-        // 클래스명을 파일명으로 변환
-        $file_name = 'class-' . strtolower(str_replace('_', '-', $class_name)) . '.php';
+        $file_name = 'class-' . strtolower(str_replace(array('AINL_', '_'), array('', '-'), $class_name)) . '.php';
+        $file_path = AINL_PLUGIN_DIR . 'includes/' . $file_name;
         
-        // 여러 디렉토리에서 파일 검색
-        $search_paths = array(
-            AINL_PLUGIN_DIR . 'includes/',
-            AINL_PLUGIN_DIR . 'admin/',
-            AINL_PLUGIN_DIR . 'public/'
-        );
-        
-        foreach ($search_paths as $path) {
-            $file_path = $path . $file_name;
-            if (file_exists($file_path)) {
-                require_once $file_path;
-                return;
-            }
+        if (file_exists($file_path)) {
+            require_once $file_path;
         }
     }
     
     /**
-     * 플러그인 초기화
+     * 플러그인 초기화 (WordPress가 완전히 로드된 후)
      */
     public function init() {
-        // 텍스트 도메인 로드
-        load_plugin_textdomain(
-            'ai-newsletter-generator-pro',
-            false,
-            dirname(AINL_PLUGIN_BASENAME) . '/languages'
-        );
-        
-        // 플러그인이 활성화된 경우에만 실행
-        if (get_option('ainl_plugin_activated')) {
-            $this->init_plugin_components();
+        try {
+            // WordPress가 완전히 로드되었는지 확인
+            if (!function_exists('is_admin') || !function_exists('current_user_can')) {
+                error_log('AINL Plugin: WordPress admin functions not available in init');
+                return;
+            }
+            
+            // 국제화 로드
+            if (function_exists('load_plugin_textdomain')) {
+                load_plugin_textdomain('ai-newsletter-generator-pro', false, dirname(AINL_PLUGIN_BASENAME) . '/languages');
+            }
+            
+            // 관리자 페이지 초기화
+            if (is_admin()) {
+                $this->init_admin();
+            }
+            
+            // 크론 작업 스케줄링
+            $this->schedule_newsletter_generation();
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Init Error: ' . $e->getMessage());
         }
     }
     
@@ -152,279 +235,289 @@ class AI_Newsletter_Generator_Pro {
      * 관리자 초기화
      */
     public function admin_init() {
-        // 관리자 관련 초기화 작업
-        if (current_user_can('manage_options')) {
-            // 관리자 메뉴 및 페이지 초기화는 다음 작업에서 구현
-        }
-    }
-    
-    /**
-     * 플러그인 컴포넌트 초기화
-     */
-    private function init_plugin_components() {
-        // WordPress 환경 체크
-        if (!function_exists('add_action') || !function_exists('is_admin')) {
-            return;
-        }
-        
-        // 기본 시스템만 우선 초기화 (오류 방지)
         try {
-            // 보안 시스템 초기화 (최우선)
-            if (class_exists('AINL_Security')) {
-                new AINL_Security();
+            // WordPress 관리자 함수 가용성 체크
+            if (!function_exists('add_options_page') || !function_exists('current_user_can')) {
+                error_log('AINL Plugin: WordPress admin functions not available');
+                return;
             }
             
-            // 데이터베이스 관리자 초기화
-            if (class_exists('AINL_Database')) {
-                new AINL_Database();
-            }
-            
-            // 구독자 관리자 초기화
-            if (class_exists('AINL_Subscriber_Manager')) {
-                new AINL_Subscriber_Manager();
-            }
-            
-            // 이메일 매니저 초기화
-            if (class_exists('AINL_Email_Manager')) {
-                new AINL_Email_Manager();
-            }
-            
-            // 템플릿 관리자 초기화
-            if (class_exists('AINL_Template_Manager')) {
-                new AINL_Template_Manager();
-            }
-            
-            // 캠페인 관리자 초기화
-            if (class_exists('AINL_Campaign_Manager')) {
-                new AINL_Campaign_Manager();
-            }
-            
-            // 구독 폼 시스템 초기화
-            if (class_exists('AINL_Subscription_Form')) {
-                AINL_Subscription_Form::get_instance();
-            }
-            
-            // 통계 시스템 초기화
-            if (class_exists('AINL_Statistics')) {
-                AINL_Statistics::get_instance();
-            }
-            
-            // GDPR 컴플라이언스 시스템 초기화
-            if (class_exists('AINL_GDPR')) {
-                AINL_GDPR::get_instance();
-            }
-            
-            // AI 엔진 초기화
-            if (class_exists('AINL_AI_Engine')) {
-                AINL_AI_Engine::get_instance();
-            }
-            
-            // 관리자 인터페이스 초기화 (지연 로딩)
-            if (is_admin()) {
-                // 관리자 메뉴는 AINL_Admin 클래스 내부에서 처리하므로 여기서는 클래스만 초기화
-                $admin_file = AINL_PLUGIN_DIR . 'admin/class-ainl-admin.php';
-                if (file_exists($admin_file)) {
-                    require_once $admin_file;
-                    if (class_exists('AINL_Admin') && function_exists('current_user_can') && current_user_can('manage_options')) {
-                        new AINL_Admin();
-                    }
-                } else {
-                    if (function_exists('error_log')) {
-                        error_log('AI Newsletter Generator Pro: Admin 파일을 찾을 수 없습니다: ' . $admin_file);
-                    }
-                }
-                
-                if (class_exists('AINL_Settings')) {
-                    new AINL_Settings();
-                }
+            // 메뉴 추가
+            if (function_exists('add_action')) {
+                add_action('admin_menu', array($this, 'add_admin_menu'));
+                add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
             }
             
         } catch (Exception $e) {
-            // 오류 로깅 (WordPress 오류 로그에 기록)
-            if (function_exists('error_log')) {
-                error_log('AI Newsletter Generator Pro 초기화 오류: ' . $e->getMessage());
-            }
-            
-            // 관리자에게 알림 표시
-            if (function_exists('is_admin') && is_admin() && function_exists('add_action')) {
-                add_action('admin_notices', function() use ($e) {
-                    $message = function_exists('esc_html') ? esc_html($e->getMessage()) : $e->getMessage();
-                    echo '<div class="notice notice-error"><p><strong>AI Newsletter Generator Pro:</strong> 플러그인 초기화 중 오류가 발생했습니다. 오류: ' . $message . '</p></div>';
-                });
-            }
+            error_log('AINL Plugin Admin Init Error: ' . $e->getMessage());
         }
     }
     
     /**
-     * 사용자 정의 크론 스케줄 추가
-     * 이메일 큐 처리를 위한 매분 실행 스케줄을 추가합니다.
-     * 
-     * @param array $schedules 기존 크론 스케줄 배열
-     * @return array 수정된 크론 스케줄 배열
+     * 관리자 초기화 (별도 메서드)
      */
-    public function add_cron_schedules($schedules) {
-        // 매분 실행 스케줄 추가
-        $schedules['every_minute'] = array(
-            'interval' => 60, // 60초 = 1분
-            'display'  => __('Every Minute', 'ai-newsletter-generator-pro')
-        );
-        
-        // 5분마다 실행 스케줄 추가
-        $schedules['every_five_minutes'] = array(
-            'interval' => 300, // 300초 = 5분
-            'display'  => __('Every 5 Minutes', 'ai-newsletter-generator-pro')
-        );
-        
-        // 15분마다 실행 스케줄 추가
-        $schedules['every_fifteen_minutes'] = array(
-            'interval' => 900, // 900초 = 15분
-            'display'  => __('Every 15 Minutes', 'ai-newsletter-generator-pro')
-        );
-        
-        return $schedules;
+    private function init_admin() {
+        try {
+            if (class_exists('AINL_Admin')) {
+                new AINL_Admin();
+            }
+        } catch (Exception $e) {
+            error_log('AINL Plugin Admin Class Error: ' . $e->getMessage());
+        }
     }
     
     /**
-     * 플러그인 활성화 시 실행
+     * 관리자 메뉴 추가
+     */
+    public function add_admin_menu() {
+        if (!function_exists('add_options_page') || !function_exists('current_user_can')) {
+            return;
+        }
+        
+        try {
+            add_options_page(
+                'AI Newsletter Generator Pro',
+                'AI Newsletter',
+                'manage_options',
+                'ai-newsletter-generator-pro',
+                array($this, 'admin_page')
+            );
+        } catch (Exception $e) {
+            error_log('AINL Plugin Menu Error: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 관리자 스크립트 로드
+     */
+    public function enqueue_admin_scripts($hook) {
+        if (!function_exists('wp_enqueue_script') || !function_exists('wp_enqueue_style')) {
+            return;
+        }
+        
+        if ($hook !== 'settings_page_ai-newsletter-generator-pro') {
+            return;
+        }
+        
+        try {
+            wp_enqueue_script(
+                'ainl-admin-js',
+                AINL_PLUGIN_URL . 'assets/admin.js',
+                array('jquery'),
+                AINL_PLUGIN_VERSION,
+                true
+            );
+            
+            wp_enqueue_style(
+                'ainl-admin-css',
+                AINL_PLUGIN_URL . 'assets/admin.css',
+                array(),
+                AINL_PLUGIN_VERSION
+            );
+        } catch (Exception $e) {
+            error_log('AINL Plugin Scripts Error: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 관리자 페이지 렌더링
+     */
+    public function admin_page() {
+        if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+        
+        echo '<div class="wrap">';
+        echo '<h1>AI Newsletter Generator Pro</h1>';
+        echo '<p>AI 뉴스레터 생성기 설정 페이지입니다.</p>';
+        echo '</div>';
+    }
+    
+    /**
+     * 크론 스케줄 추가
+     */
+    public function add_cron_schedules($schedules) {
+        try {
+            $schedules['weekly'] = array(
+                'interval' => 604800, // 7일 = 604800초
+                'display'  => __('매주', 'ai-newsletter-generator-pro')
+            );
+            
+            $schedules['monthly'] = array(
+                'interval' => 2592000, // 30일 = 2592000초
+                'display'  => __('매월', 'ai-newsletter-generator-pro')
+            );
+            
+            return $schedules;
+        } catch (Exception $e) {
+            error_log('AINL Plugin Cron Schedules Error: ' . $e->getMessage());
+            return $schedules;
+        }
+    }
+    
+    /**
+     * 뉴스레터 생성 스케줄링
+     */
+    private function schedule_newsletter_generation() {
+        try {
+            if (!function_exists('wp_next_scheduled') || !function_exists('wp_schedule_event')) {
+                error_log('AINL Plugin: WordPress cron functions not available');
+                return;
+            }
+            
+            if (!wp_next_scheduled('ainl_generate_newsletter')) {
+                wp_schedule_event(time(), 'weekly', 'ainl_generate_newsletter');
+            }
+            
+            // 크론 액션 추가
+            if (function_exists('add_action')) {
+                add_action('ainl_generate_newsletter', array($this, 'generate_newsletter_cron'));
+            }
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Schedule Error: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 크론으로 뉴스레터 생성
+     */
+    public function generate_newsletter_cron() {
+        try {
+            if (class_exists('AINL_Generator')) {
+                $generator = new AINL_Generator();
+                $generator->generate_and_send_newsletter();
+            }
+        } catch (Exception $e) {
+            error_log('AINL Plugin Cron Generation Error: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 플러그인 활성화
      */
     public function activate() {
-        // 활성화 처리 클래스 실행
-        AINL_Activator::activate();
-        
-        // 활성화 플래그 설정
-        update_option('ainl_plugin_activated', true);
-        
-        // 버전 정보 저장
-        update_option('ainl_plugin_version', AINL_PLUGIN_VERSION);
+        try {
+            // WordPress 함수 가용성 체크
+            if (!function_exists('flush_rewrite_rules')) {
+                error_log('AINL Plugin: WordPress rewrite functions not available in activation');
+                return;
+            }
+            
+            // 데이터베이스 테이블 생성
+            $this->create_tables();
+            
+            // 기본 옵션 설정
+            $this->set_default_options();
+            
+            // 리라이트 규칙 플러시
+            flush_rewrite_rules();
+            
+            error_log('AINL Plugin: Successfully activated');
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Activation Error: ' . $e->getMessage());
+        }
     }
     
     /**
      * 플러그인 비활성화
-     * WordPress 트러블슈팅 문서 권장사항 적용
      */
     public function deactivate() {
-        // WordPress 환경 체크
-        if (!function_exists('wp_clear_scheduled_hook') || !function_exists('delete_transient')) {
-            error_log('AINL Plugin Deactivation: WordPress functions not available');
-            return;
-        }
-        
         try {
-            // 1. 예약된 크론 작업 정리 (WordPress 트러블슈팅 권장)
-            $cron_jobs = array(
-                'ainl_newsletter_cron',
-                'ainl_cleanup_cron', 
-                'ainl_stats_update_cron',
-                'ainl_email_queue_cron',
-                'ainl_backup_cron',
-                'ainl_maintenance_cron',
-                'ainl_subscriber_cleanup_cron'
-            );
-            
-            foreach ($cron_jobs as $job) {
-                if (function_exists('wp_clear_scheduled_hook')) {
-                    wp_clear_scheduled_hook($job);
-                }
+            // WordPress 함수 가용성 체크
+            if (!function_exists('wp_clear_scheduled_hook') || !function_exists('flush_rewrite_rules')) {
+                error_log('AINL Plugin: WordPress functions not available in deactivation');
+                return;
             }
             
-            // 2. 트랜지언트 캐시 정리 (성능 향상)
-            $transients = array(
-                'ainl_post_cache',
-                'ainl_stats_cache',
-                'ainl_email_queue_cache',
-                'ainl_subscriber_count_cache',
-                'ainl_template_cache',
-                'ainl_campaign_cache',
-                'ainl_api_status_cache'
-            );
+            // 크론 작업 제거
+            wp_clear_scheduled_hook('ainl_generate_newsletter');
             
-            foreach ($transients as $transient) {
-                if (function_exists('delete_transient')) {
-                    delete_transient($transient);
-                }
-            }
+            // 리라이트 규칙 플러시
+            flush_rewrite_rules();
             
-            // 3. 사용자 메타데이터 정리
-            if (function_exists('delete_user_meta')) {
-                $user_meta_keys = array(
-                    'ainl_last_newsletter_sent',
-                    'ainl_email_preferences', 
-                    'ainl_subscription_status',
-                    'ainl_admin_notices_dismissed'
-                );
-                
-                foreach ($user_meta_keys as $meta_key) {
-                    delete_user_meta(0, $meta_key); // 0은 모든 사용자
-                }
-            }
-            
-            // 4. 관리자 알림 정리
-            if (function_exists('delete_option')) {
-                $admin_notices = array(
-                    'ainl_admin_notice_activation',
-                    'ainl_admin_notice_api_error',
-                    'ainl_admin_notice_email_error', 
-                    'ainl_admin_notice_update_available'
-                );
-                
-                foreach ($admin_notices as $notice) {
-                    delete_option($notice);
-                }
-            }
-            
-            // 5. 임시 파일 정리 (보안 강화)
-            $temp_dir = AINL_PLUGIN_DIR . 'temp/';
-            if (is_dir($temp_dir)) {
-                $this->safe_remove_temp_files($temp_dir);
-            }
-            
-            // 6. 플러그인 상태 업데이트
-            if (function_exists('update_option')) {
-                update_option('ainl_plugin_activated', false);
-                update_option('ainl_last_deactivation', current_time('mysql'));
-            }
-            
-            // 7. 로그 기록
-            if (function_exists('error_log')) {
-                error_log('AINL Plugin successfully deactivated at ' . current_time('mysql'));
-            }
+            error_log('AINL Plugin: Successfully deactivated');
             
         } catch (Exception $e) {
-            // 오류 발생 시에도 안전하게 처리 (WordPress 트러블슈팅 권장)
-            if (function_exists('error_log')) {
-                error_log('AINL Plugin Deactivation Error: ' . $e->getMessage());
-            }
-            
-            // 최소한의 정리 작업이라도 수행
-            if (function_exists('update_option')) {
-                update_option('ainl_plugin_activated', false);
-                update_option('ainl_deactivation_error', $e->getMessage());
-            }
+            error_log('AINL Plugin Deactivation Error: ' . $e->getMessage());
         }
     }
     
     /**
-     * 임시 파일 안전 제거 (WordPress 트러블슈팅 권장)
+     * 데이터베이스 테이블 생성
      */
-    private function safe_remove_temp_files($dir) {
-        if (!is_dir($dir) || !is_readable($dir)) {
+    private function create_tables() {
+        global $wpdb;
+        
+        if (!$wpdb) {
+            error_log('AINL Plugin: WordPress database not available');
             return;
         }
         
         try {
-            $files = scandir($dir);
-            foreach ($files as $file) {
-                if ($file != '.' && $file != '..' && $file != '.htaccess') {
-                    $file_path = $dir . $file;
-                    if (is_file($file_path) && is_writable($file_path)) {
-                        unlink($file_path);
-                    }
+            // 뉴스레터 구독자 테이블
+            $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+            $sql_subscribers = "CREATE TABLE IF NOT EXISTS $subscribers_table (
+                id int(11) NOT NULL AUTO_INCREMENT,
+                email varchar(255) NOT NULL,
+                name varchar(255) DEFAULT '',
+                status varchar(20) DEFAULT 'active',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY email (email),
+                KEY status (status)
+            ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+            
+            // 뉴스레터 캠페인 테이블
+            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+            $sql_campaigns = "CREATE TABLE IF NOT EXISTS $campaigns_table (
+                id int(11) NOT NULL AUTO_INCREMENT,
+                title varchar(255) NOT NULL,
+                content longtext,
+                status varchar(20) DEFAULT 'draft',
+                sent_at datetime NULL,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY status (status)
+            ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+            
+            if (function_exists('require_once')) {
+                require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+                if (function_exists('dbDelta')) {
+                    dbDelta($sql_subscribers);
+                    dbDelta($sql_campaigns);
                 }
             }
+            
         } catch (Exception $e) {
-            if (function_exists('error_log')) {
-                error_log('AINL Temp file cleanup error: ' . $e->getMessage());
+            error_log('AINL Plugin Database Error: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * 기본 옵션 설정
+     */
+    private function set_default_options() {
+        try {
+            if (!function_exists('add_option')) {
+                error_log('AINL Plugin: WordPress option functions not available');
+                return;
             }
+            
+            // 기본 설정값들
+            add_option('ainl_plugin_version', AINL_PLUGIN_VERSION);
+            add_option('ainl_plugin_activated', true);
+            add_option('ainl_email_from_name', get_bloginfo('name'));
+            add_option('ainl_email_from_email', get_bloginfo('admin_email'));
+            add_option('ainl_newsletter_frequency', 'weekly');
+            add_option('ainl_max_posts_per_newsletter', 5);
+            add_option('ainl_ai_model', 'gpt-3.5-turbo');
+            add_option('ainl_template_style', 'modern');
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Options Error: ' . $e->getMessage());
         }
     }
 }
