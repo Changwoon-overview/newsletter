@@ -168,6 +168,12 @@ class AI_Newsletter_Generator_Pro {
         // 템플릿 관리자 초기화
         new AINL_Template_Manager();
         
+        // 캠페인 관리자 초기화
+        new AINL_Campaign_Manager();
+        
+        // AI 엔진 초기화
+        AINL_AI_Engine::get_instance();
+        
         // 관리자 인터페이스 초기화
         if (is_admin()) {
             new AINL_Admin();
