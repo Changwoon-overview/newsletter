@@ -1,0 +1,566 @@
+/**
+ * AI Newsletter Generator Pro - 구독 폼 스타일시트
+ * 기본, 미니멀, 모던 스타일과 반응형 디자인 지원
+ */
+
+/* ==========================================================================
+   기본 구독 폼 스타일
+   ========================================================================== */
+
+.ainl-subscription-form {
+    max-width: 400px;
+    margin: 20px 0;
+    padding: 20px;
+    border: 1px solid #e1e1e1;
+    border-radius: 6px;
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    box-sizing: border-box;
+}
+
+.ainl-subscription-form * {
+    box-sizing: border-box;
+}
+
+.ainl-form-title {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.3;
+}
+
+.ainl-form-description {
+    margin: 0 0 20px 0;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.ainl-form-fields {
+    margin-bottom: 20px;
+}
+
+.ainl-field-group {
+    margin-bottom: 15px;
+}
+
+.ainl-field-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+.ainl-required {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.ainl-form-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background: #fff;
+}
+
+.ainl-form-input:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 3px rgba(0, 124, 186, 0.1);
+}
+
+.ainl-form-input::placeholder {
+    color: #999;
+}
+
+/* 카테고리 선택 */
+.ainl-categories-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.ainl-category-item {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ainl-category-checkbox {
+    margin-right: 6px;
+    width: auto;
+}
+
+.ainl-category-name {
+    color: #555;
+}
+
+.ainl-category-item:hover .ainl-category-name {
+    color: #007cba;
+}
+
+/* GDPR 동의 */
+.ainl-gdpr-field {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.ainl-gdpr-label {
+    display: flex;
+    align-items: flex-start;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+.ainl-gdpr-checkbox {
+    margin-right: 8px;
+    margin-top: 2px;
+    width: auto;
+    flex-shrink: 0;
+}
+
+.ainl-gdpr-text {
+    color: #666;
+}
+
+.ainl-gdpr-text a {
+    color: #007cba;
+    text-decoration: none;
+}
+
+.ainl-gdpr-text a:hover {
+    text-decoration: underline;
+}
+
+/* 제출 버튼 */
+.ainl-form-actions {
+    margin-bottom: 15px;
+}
+
+.ainl-submit-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 4px;
+    background: #007cba;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.ainl-submit-btn:hover {
+    background: #005a87;
+    transform: translateY(-1px);
+}
+
+.ainl-submit-btn:active {
+    transform: translateY(0);
+}
+
+.ainl-submit-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ainl-btn-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.ainl-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    animation: ainl-spin 1s linear infinite;
+}
+
+@keyframes ainl-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 메시지 */
+.ainl-form-messages {
+    margin-top: 15px;
+}
+
+.ainl-success-message {
+    padding: 12px 15px;
+    border-radius: 4px;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.ainl-error-message {
+    padding: 12px 15px;
+    border-radius: 4px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* ==========================================================================
+   미니멀 스타일 (.ainl-style-minimal)
+   ========================================================================== */
+
+.ainl-style-minimal {
+    border: none;
+    background: transparent;
+    padding: 15px 0;
+    box-shadow: none;
+}
+
+.ainl-style-minimal .ainl-form-title {
+    font-size: 20px;
+    font-weight: 400;
+    margin-bottom: 8px;
+}
+
+.ainl-style-minimal .ainl-form-description {
+    font-size: 13px;
+    margin-bottom: 15px;
+}
+
+.ainl-style-minimal .ainl-form-input {
+    border: none;
+    border-bottom: 2px solid #e1e1e1;
+    border-radius: 0;
+    padding: 10px 0;
+    background: transparent;
+    font-size: 16px;
+}
+
+.ainl-style-minimal .ainl-form-input:focus {
+    border-bottom-color: #333;
+    box-shadow: none;
+}
+
+.ainl-style-minimal .ainl-submit-btn {
+    background: #333;
+    border-radius: 0;
+    font-weight: 400;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: 14px;
+}
+
+.ainl-style-minimal .ainl-submit-btn:hover {
+    background: #555;
+}
+
+.ainl-style-minimal .ainl-field-label {
+    font-size: 13px;
+    font-weight: 400;
+    color: #777;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ainl-style-minimal .ainl-gdpr-field {
+    border-top: 1px solid #e1e1e1;
+    margin-top: 15px;
+    padding-top: 10px;
+}
+
+/* ==========================================================================
+   모던 스타일 (.ainl-style-modern)
+   ========================================================================== */
+
+.ainl-style-modern {
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.ainl-style-modern .ainl-form-title {
+    color: #fff;
+    font-weight: 700;
+    font-size: 26px;
+    margin-bottom: 8px;
+}
+
+.ainl-style-modern .ainl-form-description {
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 25px;
+}
+
+.ainl-style-modern .ainl-field-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.ainl-style-modern .ainl-form-input {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: #333;
+    font-size: 15px;
+    padding: 14px 16px;
+}
+
+.ainl-style-modern .ainl-form-input:focus {
+    background: #fff;
+    border-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.ainl-style-modern .ainl-submit-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    font-size: 15px;
+    padding: 16px 20px;
+}
+
+.ainl-style-modern .ainl-submit-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.ainl-style-modern .ainl-gdpr-text {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.ainl-style-modern .ainl-gdpr-text a {
+    color: rgba(255, 255, 255, 0.95);
+    text-decoration: underline;
+}
+
+.ainl-style-modern .ainl-category-name {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.ainl-style-modern .ainl-category-item:hover .ainl-category-name {
+    color: #fff;
+}
+
+/* ==========================================================================
+   팝업 스타일
+   ========================================================================== */
+
+.ainl-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: ainl-fade-in 0.3s ease;
+}
+
+.ainl-popup-container {
+    position: relative;
+    max-width: 450px;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 20px;
+    animation: ainl-slide-up 0.3s ease;
+}
+
+.ainl-popup-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+    color: #999;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.ainl-popup-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #333;
+    transform: scale(1.1);
+}
+
+@keyframes ainl-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes ainl-slide-up {
+    from { 
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ==========================================================================
+   반응형 디자인
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .ainl-subscription-form {
+        max-width: 100%;
+        margin: 15px 0;
+        padding: 20px 15px;
+    }
+    
+    .ainl-style-modern {
+        padding: 25px 20px;
+    }
+    
+    .ainl-form-title {
+        font-size: 22px;
+    }
+    
+    .ainl-style-modern .ainl-form-title {
+        font-size: 24px;
+    }
+    
+    .ainl-categories-list {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .ainl-popup-container {
+        margin: 10px;
+        max-width: calc(100% - 20px);
+    }
+    
+    .ainl-form-input {
+        font-size: 16px; /* iOS 줌 방지 */
+    }
+}
+
+@media (max-width: 480px) {
+    .ainl-subscription-form {
+        padding: 15px 10px;
+    }
+    
+    .ainl-style-modern {
+        padding: 20px 15px;
+    }
+    
+    .ainl-form-title {
+        font-size: 20px;
+    }
+    
+    .ainl-submit-btn {
+        padding: 12px 16px;
+        font-size: 15px;
+    }
+}
+
+/* ==========================================================================
+   접근성 개선
+   ========================================================================== */
+
+.ainl-subscription-form:focus-within {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ainl-subscription-form *,
+    .ainl-subscription-form *::before,
+    .ainl-subscription-form *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* 고대비 모드 지원 */
+@media (prefers-contrast: high) {
+    .ainl-subscription-form {
+        border: 2px solid #000;
+    }
+    
+    .ainl-form-input {
+        border: 2px solid #000;
+    }
+    
+    .ainl-submit-btn {
+        border: 2px solid #000;
+    }
+}
+
+/* 다크 모드 지원 */
+@media (prefers-color-scheme: dark) {
+    .ainl-subscription-form {
+        background: #2c2c2c;
+        border-color: #555;
+        color: #fff;
+    }
+    
+    .ainl-form-title {
+        color: #fff;
+    }
+    
+    .ainl-form-description {
+        color: #ccc;
+    }
+    
+    .ainl-field-label {
+        color: #fff;
+    }
+    
+    .ainl-form-input {
+        background: #3c3c3c;
+        border-color: #555;
+        color: #fff;
+    }
+    
+    .ainl-form-input::placeholder {
+        color: #999;
+    }
+    
+    .ainl-category-name {
+        color: #ccc;
+    }
+    
+    .ainl-gdpr-text {
+        color: #ccc;
+    }
+} 

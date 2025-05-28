@@ -171,6 +171,12 @@ class AI_Newsletter_Generator_Pro {
         // 캠페인 관리자 초기화
         new AINL_Campaign_Manager();
         
+        // 구독 폼 시스템 초기화
+        AINL_Subscription_Form::get_instance();
+        
+        // GDPR 컴플라이언스 시스템 초기화
+        AINL_GDPR::get_instance();
+        
         // AI 엔진 초기화
         AINL_AI_Engine::get_instance();
         
