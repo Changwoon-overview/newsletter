@@ -22,26 +22,67 @@ class AINL_AI_Engine {
     private static $instance = null;
     
     /**
-     * OpenAI API 키
+     * AI 제공업체
+     */
+    private $provider;
+    
+    /**
+     * API 키
      */
     private $api_key;
     
     /**
-     * OpenAI API 엔드포인트
+     * API 엔드포인트
      */
-    private $api_endpoint = 'https://api.openai.com/v1/chat/completions';
+    private $api_endpoint;
     
     /**
      * 기본 모델
      */
-    private $default_model = 'gpt-3.5-turbo';
+    private $default_model;
     
     /**
      * 생성자
      */
     public function __construct() {
         $settings = get_option('ainl_settings', array());
-        $this->api_key = $settings['openai_api_key'] ?? '';
+        
+        // AI 제공업체 설정
+        $this->provider = $settings['ai']['provider'] ?? 'openai';
+        
+        // 제공업체에 따른 설정
+        $this->setup_provider_config($settings);
+    }
+    
+    /**
+     * 제공업체별 설정 구성
+     */
+    private function setup_provider_config($settings) {
+        switch ($this->provider) {
+            case 'groq':
+                $this->api_key = $settings['ai']['groq_api_key'] ?? '';
+                $this->api_endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+                $this->default_model = 'llama-3.3-70b-versatile'; // 최신 Groq 모델
+                break;
+                
+            case 'claude':
+                $this->api_key = $settings['ai']['claude_api_key'] ?? '';
+                $this->api_endpoint = 'https://api.anthropic.com/v1/messages';
+                $this->default_model = 'claude-3-sonnet-20241022';
+                break;
+                
+            case 'openai':
+            default:
+                $this->api_key = $settings['ai']['openai_api_key'] ?? $settings['openai_api_key'] ?? '';
+                $this->api_endpoint = 'https://api.openai.com/v1/chat/completions';
+                $this->default_model = 'gpt-3.5-turbo';
+                break;
+        }
+        
+        // 모델 설정 우선순위: 사용자 설정 > 기본값
+        if (!empty($settings['ai']['model'])) {
+            $this->default_model = $settings['ai']['model'];
+        }
     }
     
     /**
@@ -98,7 +139,7 @@ class AINL_AI_Engine {
         $prompt = $this->build_content_generation_prompt($posts_data, $options);
         
         // OpenAI API 호출
-        $response = $this->call_openai_api($prompt, $options);
+        $response = $this->call_ai_api($prompt, $options);
         
         if (is_wp_error($response)) {
             return $response;
@@ -119,7 +160,7 @@ class AINL_AI_Engine {
      */
     public function generate_post_summary($post, $max_words = 50) {
         if (!$this->is_configured()) {
-            return new WP_Error('no_api_key', 'OpenAI API 키가 설정되지 않았습니다.');
+            return new WP_Error('no_api_key', $this->provider . ' API 키가 설정되지 않았습니다.');
         }
         
         $content = wp_strip_all_tags($post->post_content);
@@ -130,7 +171,7 @@ class AINL_AI_Engine {
         $prompt .= "내용: " . $content . "\n\n";
         $prompt .= "요약:";
         
-        $response = $this->call_openai_api($prompt, array(
+        $response = $this->call_ai_api($prompt, array(
             'max_tokens' => 150,
             'temperature' => 0.7
         ));
@@ -151,7 +192,7 @@ class AINL_AI_Engine {
      */
     public function generate_newsletter_title($posts, $options = array()) {
         if (!$this->is_configured()) {
-            return new WP_Error('no_api_key', 'OpenAI API 키가 설정되지 않았습니다.');
+            return new WP_Error('no_api_key', $this->provider . ' API 키가 설정되지 않았습니다.');
         }
         
         $defaults = array(
@@ -175,7 +216,7 @@ class AINL_AI_Engine {
         $prompt .= "게시물 제목들:\n- " . $titles_text . "\n\n";
         $prompt .= "뉴스레터 제목 후보 (번호와 함께):\n";
         
-        $response = $this->call_openai_api($prompt, array(
+        $response = $this->call_ai_api($prompt, array(
             'max_tokens' => 200,
             'temperature' => 0.8
         ));
@@ -296,13 +337,13 @@ class AINL_AI_Engine {
     }
     
     /**
-     * OpenAI API 호출
+     * AI API 호출 (OpenAI 호환)
      * 
      * @param string $prompt 프롬프트
      * @param array $options 옵션
      * @return string|WP_Error 응답 또는 에러
      */
-    private function call_openai_api($prompt, $options = array()) {
+    private function call_ai_api($prompt, $options = array()) {
         $defaults = array(
             'model' => $this->default_model,
             'max_tokens' => 2000,
@@ -314,27 +355,15 @@ class AINL_AI_Engine {
         
         $options = wp_parse_args($options, $defaults);
         
-        $body = array(
-            'model' => $options['model'],
-            'messages' => array(
-                array(
-                    'role' => 'user',
-                    'content' => $prompt
-                )
-            ),
-            'max_tokens' => $options['max_tokens'],
-            'temperature' => $options['temperature'],
-            'top_p' => $options['top_p'],
-            'frequency_penalty' => $options['frequency_penalty'],
-            'presence_penalty' => $options['presence_penalty']
-        );
+        // 제공업체별 요청 본문 구성
+        $body = $this->prepare_api_request_body($prompt, $options);
+        
+        // 제공업체별 헤더 구성
+        $headers = $this->prepare_api_headers();
         
         $args = array(
             'method' => 'POST',
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $this->api_key,
-                'Content-Type' => 'application/json'
-            ),
+            'headers' => $headers,
             'body' => wp_json_encode($body),
             'timeout' => 60
         );
@@ -342,7 +371,7 @@ class AINL_AI_Engine {
         $response = wp_remote_request($this->api_endpoint, $args);
         
         if (is_wp_error($response)) {
-            return new WP_Error('api_error', 'OpenAI API 호출 중 오류가 발생했습니다: ' . $response->get_error_message());
+            return new WP_Error('api_error', $this->provider . ' API 호출 중 오류가 발생했습니다: ' . $response->get_error_message());
         }
         
         $response_code = wp_remote_retrieve_response_code($response);
@@ -350,17 +379,105 @@ class AINL_AI_Engine {
         
         if ($response_code !== 200) {
             $error_data = json_decode($response_body, true);
-            $error_message = $error_data['error']['message'] ?? 'Unknown error';
-            return new WP_Error('api_error', 'OpenAI API 오류 (' . $response_code . '): ' . $error_message);
+            $error_message = $this->extract_error_message($error_data);
+            return new WP_Error('api_error', $this->provider . ' API 오류 (' . $response_code . '): ' . $error_message);
         }
         
         $data = json_decode($response_body, true);
         
-        if (!isset($data['choices'][0]['message']['content'])) {
-            return new WP_Error('invalid_response', 'OpenAI API 응답이 올바르지 않습니다.');
+        // 제공업체별 응답 추출
+        $content = $this->extract_response_content($data);
+        
+        if (!$content) {
+            return new WP_Error('invalid_response', $this->provider . ' API 응답이 올바르지 않습니다.');
         }
         
-        return $data['choices'][0]['message']['content'];
+        return $content;
+    }
+    
+    /**
+     * 제공업체별 API 요청 본문 준비
+     */
+    private function prepare_api_request_body($prompt, $options) {
+        switch ($this->provider) {
+            case 'claude':
+                return array(
+                    'model' => $options['model'],
+                    'max_tokens' => $options['max_tokens'],
+                    'messages' => array(
+                        array(
+                            'role' => 'user',
+                            'content' => $prompt
+                        )
+                    )
+                );
+                
+            case 'groq':
+            case 'openai':
+            default:
+                return array(
+                    'model' => $options['model'],
+                    'messages' => array(
+                        array(
+                            'role' => 'user',
+                            'content' => $prompt
+                        )
+                    ),
+                    'max_tokens' => $options['max_tokens'],
+                    'temperature' => $options['temperature'],
+                    'top_p' => $options['top_p'],
+                    'frequency_penalty' => $options['frequency_penalty'],
+                    'presence_penalty' => $options['presence_penalty']
+                );
+        }
+    }
+    
+    /**
+     * 제공업체별 API 헤더 준비
+     */
+    private function prepare_api_headers() {
+        switch ($this->provider) {
+            case 'claude':
+                return array(
+                    'x-api-key' => $this->api_key,
+                    'Content-Type' => 'application/json',
+                    'anthropic-version' => '2023-06-01'
+                );
+                
+            case 'groq':
+            case 'openai':
+            default:
+                return array(
+                    'Authorization' => 'Bearer ' . $this->api_key,
+                    'Content-Type' => 'application/json'
+                );
+        }
+    }
+    
+    /**
+     * 제공업체별 에러 메시지 추출
+     */
+    private function extract_error_message($error_data) {
+        if ($this->provider === 'claude') {
+            return $error_data['error']['message'] ?? 'Unknown error';
+        }
+        
+        return $error_data['error']['message'] ?? 'Unknown error';
+    }
+    
+    /**
+     * 제공업체별 응답 콘텐츠 추출
+     */
+    private function extract_response_content($data) {
+        switch ($this->provider) {
+            case 'claude':
+                return $data['content'][0]['text'] ?? null;
+                
+            case 'groq':
+            case 'openai':
+            default:
+                return $data['choices'][0]['message']['content'] ?? null;
+        }
     }
     
     /**
@@ -404,13 +521,13 @@ class AINL_AI_Engine {
         if (!$this->is_configured()) {
             return array(
                 'success' => false,
-                'message' => 'OpenAI API 키가 설정되지 않았습니다.'
+                'message' => $this->provider . ' API 키가 설정되지 않았습니다.'
             );
         }
         
         $test_prompt = "Hello, this is a test message. Please respond with 'API connection successful'.";
         
-        $response = $this->call_openai_api($test_prompt, array(
+        $response = $this->call_ai_api($test_prompt, array(
             'max_tokens' => 50,
             'temperature' => 0
         ));
@@ -424,7 +541,7 @@ class AINL_AI_Engine {
         
         return array(
             'success' => true,
-            'message' => 'OpenAI API 연결이 성공적으로 테스트되었습니다.',
+            'message' => $this->provider . ' API 연결이 성공적으로 테스트되었습니다.',
             'response' => $response
         );
     }

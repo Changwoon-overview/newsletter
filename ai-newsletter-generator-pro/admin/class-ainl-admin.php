@@ -41,6 +41,8 @@ class AINL_Admin {
         add_action('wp_ajax_ainl_upload_image', array($this, 'ajax_upload_image'));
         add_action('wp_ajax_ainl_load_campaign', array($this, 'ajax_load_campaign'));
         add_action('wp_ajax_ainl_load_selected_posts', array($this, 'ajax_load_selected_posts'));
+        add_action('wp_ajax_ainl_test_api_connection', array($this, 'ajax_test_api_connection'));
+        add_action('wp_ajax_ainl_test_current_api', array($this, 'ajax_test_current_api'));
     }
     
     /**
@@ -2479,5 +2481,473 @@ class AINL_Admin {
         }
         
         wp_send_json_success($posts_data);
+    }
+    
+    /**
+     * 구독자 관리 페이지
+     */
+    public function subscribers_page() {
+        // 보안 체크
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $this->render_page_header('구독자 관리', '뉴스레터 구독자를 관리합니다.');
+        ?>
+        <div class="ainl-subscribers">
+            <div class="ainl-page-actions">
+                <button type="button" class="button button-primary" id="add-subscriber-btn">
+                    <span class="dashicons dashicons-plus-alt"></span>
+                    새 구독자 추가
+                </button>
+                <button type="button" class="button" id="import-subscribers-btn">
+                    <span class="dashicons dashicons-upload"></span>
+                    CSV 가져오기
+                </button>
+                <button type="button" class="button" id="export-subscribers-btn">
+                    <span class="dashicons dashicons-download"></span>
+                    CSV 내보내기
+                </button>
+            </div>
+            
+            <div class="ainl-subscribers-table">
+                <p><strong>구독자 관리 시스템이 로드되었습니다.</strong></p>
+                <p>이 페이지에서 구독자를 추가, 편집, 삭제할 수 있습니다.</p>
+                <div class="notice notice-info">
+                    <p>💡 구독자 관리 기능은 현재 기본 템플릿으로 표시됩니다. 완전한 기능은 다음 업데이트에서 구현됩니다.</p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * 템플릿 관리 페이지
+     */
+    public function templates_page() {
+        // 보안 체크
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $this->render_page_header('템플릿 관리', '이메일 템플릿을 관리합니다.');
+        ?>
+        <div class="ainl-templates">
+            <div class="ainl-page-actions">
+                <button type="button" class="button button-primary" id="add-template-btn">
+                    <span class="dashicons dashicons-plus-alt"></span>
+                    새 템플릿 생성
+                </button>
+            </div>
+            
+            <div class="ainl-templates-grid">
+                <p><strong>템플릿 관리 시스템이 로드되었습니다.</strong></p>
+                <p>이 페이지에서 이메일 템플릿을 생성하고 편집할 수 있습니다.</p>
+                <div class="notice notice-info">
+                    <p>💡 템플릿 관리 기능은 현재 기본 템플릿으로 표시됩니다. 완전한 기능은 다음 업데이트에서 구현됩니다.</p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * 통계 페이지
+     */
+    public function statistics_page() {
+        // 보안 체크
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $this->render_page_header('통계 및 분석', '뉴스레터 성과를 분석합니다.');
+        ?>
+        <div class="ainl-statistics">
+            <div class="ainl-stats-overview">
+                <div class="ainl-stat-card">
+                    <h3>총 구독자 수</h3>
+                    <div class="ainl-stat-number">0</div>
+                </div>
+                <div class="ainl-stat-card">
+                    <h3>이번 달 발송</h3>
+                    <div class="ainl-stat-number">0</div>
+                </div>
+                <div class="ainl-stat-card">
+                    <h3>평균 오픈율</h3>
+                    <div class="ainl-stat-number">0%</div>
+                </div>
+                <div class="ainl-stat-card">
+                    <h3>평균 클릭율</h3>
+                    <div class="ainl-stat-number">0%</div>
+                </div>
+            </div>
+            
+            <div class="ainl-statistics-content">
+                <p><strong>통계 시스템이 로드되었습니다.</strong></p>
+                <p>이 페이지에서 상세한 이메일 통계와 분석을 확인할 수 있습니다.</p>
+                <div class="notice notice-info">
+                    <p>💡 통계 기능은 현재 기본 템플릿으로 표시됩니다. 완전한 기능은 다음 업데이트에서 구현됩니다.</p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * 구독 폼 페이지
+     */
+    public function forms_page() {
+        // 보안 체크
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $this->render_page_header('구독 폼', '구독 폼을 생성하고 관리합니다.');
+        ?>
+        <div class="ainl-forms">
+            <div class="ainl-page-actions">
+                <button type="button" class="button button-primary" id="create-form-btn">
+                    <span class="dashicons dashicons-plus-alt"></span>
+                    새 구독 폼 생성
+                </button>
+            </div>
+            
+            <div class="ainl-forms-list">
+                <p><strong>구독 폼 관리 시스템이 로드되었습니다.</strong></p>
+                <p>이 페이지에서 웹사이트에 추가할 구독 폼을 생성하고 관리할 수 있습니다.</p>
+                <div class="notice notice-info">
+                    <p>💡 구독 폼 기능은 현재 기본 템플릿으로 표시됩니다. 완전한 기능은 다음 업데이트에서 구현됩니다.</p>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * 설정 페이지
+     */
+    public function settings_page() {
+        // 보안 체크
+        if (!current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $this->render_page_header('설정', 'AI Newsletter 플러그인 설정');
+        ?>
+        <div class="ainl-settings">
+            <form method="post" action="options.php">
+                <?php
+                settings_fields('ainl_settings_group');
+                do_settings_sections('ainl_settings');
+                submit_button('설정 저장');
+                ?>
+            </form>
+            
+            <!-- Groq API 테스트 섹션 -->
+            <div class="ainl-api-test-section">
+                <h3>🔧 API 연결 테스트</h3>
+                <p class="description">저장된 API 키로 연결 테스트를 수행합니다.</p>
+                
+                <div class="api-test-controls">
+                    <button type="button" class="button button-secondary" id="test-current-api">
+                        현재 설정으로 API 테스트
+                    </button>
+                    <div id="current-api-status" class="api-status"></div>
+                </div>
+            </div>
+            
+            <!-- Groq 안내 섹션 -->
+            <div class="ainl-groq-info">
+                <h3>🚀 Groq를 선택하는 이유</h3>
+                <div class="groq-benefits">
+                    <div class="benefit-item">
+                        <strong>⚡ 초고속 추론:</strong> 최대 750 토큰/초의 처리 속도로 거의 실시간 응답
+                    </div>
+                    <div class="benefit-item">
+                        <strong>💰 경쟁력 있는 가격:</strong> OpenAI 대비 저렴한 토큰 비용
+                    </div>
+                    <div class="benefit-item">
+                        <strong>🎯 높은 품질:</strong> Llama 3.3 70B 모델로 우수한 한국어 지원
+                    </div>
+                    <div class="benefit-item">
+                        <strong>🔒 안전성:</strong> 기업급 보안과 개인정보 보호
+                    </div>
+                </div>
+                <p><strong>권장:</strong> 빠른 뉴스레터 생성을 원한다면 Groq를 선택하세요!</p>
+                
+                <div class="groq-setup-guide">
+                    <h4>📋 Groq API 키 발급 방법</h4>
+                    <ol>
+                        <li><a href="https://console.groq.com/" target="_blank">console.groq.com</a>에 접속하여 무료 계정을 생성하세요</li>
+                        <li>좌측 메뉴에서 "API Keys"를 클릭합니다</li>
+                        <li>"Create API Key" 버튼을 클릭하여 새 API 키를 생성합니다</li>
+                        <li>생성된 API 키(gsk_로 시작)를 복사하여 위의 설정에 입력하세요</li>
+                        <li>"연결 테스트" 버튼으로 설정을 확인하세요</li>
+                    </ol>
+                    <p><em>💡 팁: Groq는 한 달에 무료로 상당한 양의 토큰을 제공하므로 개인 블로그나 소규모 뉴스레터에 완벽합니다!</em></p>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+        .ainl-ai-settings .form-table th {
+            width: 200px;
+        }
+        
+        .ai-provider-setting {
+            display: none;
+        }
+        
+        .ai-provider-setting.active {
+            display: table-row;
+        }
+        
+        .api-status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .api-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .api-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .api-status.testing {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+        
+        .ainl-groq-info {
+            background: #f0f8ff;
+            border: 1px solid #0073aa;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        
+        .groq-benefits {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .benefit-item {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #0073aa;
+        }
+        
+        .ainl-api-test-section {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .api-test-controls {
+            margin-top: 15px;
+        }
+        
+        .groq-setup-guide {
+            background: #ffffff;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .groq-setup-guide ol {
+            margin-left: 20px;
+        }
+        
+        .groq-setup-guide li {
+            margin-bottom: 8px;
+        }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            // AI 제공업체 변경 시 관련 설정 표시/숨김 (Settings API와 함께 작동)
+            function toggleProviderSettings() {
+                var selectedProvider = $('select[name="ainl_settings[ai][provider]"]').val();
+                $('.ai-provider-setting').removeClass('active');
+                $('.ai-provider-setting[data-provider="' + selectedProvider + '"]').addClass('active');
+            }
+            
+            $('select[name="ainl_settings[ai][provider]"]').on('change', toggleProviderSettings);
+            toggleProviderSettings(); // 초기 로드 시 실행
+            
+            // 현재 설정으로 API 테스트
+            $('#test-current-api').on('click', function() {
+                var statusDiv = $('#current-api-status');
+                var testButton = $(this);
+                
+                statusDiv.removeClass('success error').addClass('testing')
+                    .text('저장된 설정으로 API 연결을 테스트하는 중...').show();
+                testButton.prop('disabled', true);
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'ainl_test_current_api',
+                        nonce: '<?php echo wp_create_nonce('ainl_test_current_api'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            statusDiv.removeClass('testing error').addClass('success')
+                                .text('✅ 현재 설정으로 API 연결 성공! 사용 중인 제공업체: ' + response.data.provider);
+                        } else {
+                            statusDiv.removeClass('testing success').addClass('error')
+                                .text('❌ API 연결 실패: ' + response.data.message);
+                        }
+                    },
+                    error: function() {
+                        statusDiv.removeClass('testing success').addClass('error')
+                            .text('❌ 연결 테스트 중 오류가 발생했습니다.');
+                    },
+                    complete: function() {
+                        testButton.prop('disabled', false);
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+    
+    /**
+     * 페이지 헤더 렌더링 헬퍼 함수
+     */
+    private function render_page_header($title, $description = '') {
+        ?>
+        <div class="ainl-page-header">
+            <h1><?php echo esc_html($title); ?></h1>
+            <?php if ($description): ?>
+            <p class="ainl-page-description"><?php echo esc_html($description); ?></p>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+    
+    /**
+     * API 연결 테스트 AJAX 핸들러
+     * 각 AI 제공업체의 API 연결을 테스트합니다.
+     */
+    public function ajax_test_api_connection() {
+        // 보안 검증
+        if (!wp_verify_nonce($_POST['nonce'], 'ainl_test_api') || !current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        $provider = sanitize_text_field($_POST['provider']);
+        $api_key = sanitize_text_field($_POST['api_key']);
+        
+        if (empty($api_key)) {
+            wp_send_json_error(array(
+                'message' => 'API 키가 제공되지 않았습니다.'
+            ));
+        }
+        
+        // AI 엔진 클래스 로드
+        if (!class_exists('AINL_AI_Engine')) {
+            wp_send_json_error(array(
+                'message' => 'AI 엔진을 찾을 수 없습니다.'
+            ));
+        }
+        
+        // 임시로 현재 설정을 백업하고 테스트용 설정 생성
+        $original_settings = get_option('ainl_settings', array());
+        $test_settings = $original_settings;
+        $test_settings['ai']['provider'] = $provider;
+        $test_settings['ai'][$provider . '_api_key'] = $api_key;
+        
+        // 임시 설정 적용
+        update_option('ainl_settings', $test_settings);
+        
+        // AI 엔진 인스턴스 생성 (새로운 설정으로)
+        $ai_engine = new AINL_AI_Engine();
+        
+        // API 연결 테스트 실행
+        $test_result = $ai_engine->test_api_connection();
+        
+        // 원래 설정 복원
+        update_option('ainl_settings', $original_settings);
+        
+        if ($test_result['success']) {
+            wp_send_json_success(array(
+                'message' => $test_result['message'],
+                'provider' => $provider,
+                'response' => $test_result['response'] ?? ''
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => $test_result['message'],
+                'provider' => $provider
+            ));
+        }
+    }
+    
+    /**
+     * 현재 저장된 설정으로 API 연결 테스트 AJAX 핸들러
+     */
+    public function ajax_test_current_api() {
+        // 보안 검증
+        if (!wp_verify_nonce($_POST['nonce'], 'ainl_test_current_api') || !current_user_can('manage_options')) {
+            wp_die('권한이 없습니다.');
+        }
+        
+        // AI 엔진 클래스 로드
+        if (!class_exists('AINL_AI_Engine')) {
+            wp_send_json_error(array(
+                'message' => 'AI 엔진을 찾을 수 없습니다.'
+            ));
+        }
+        
+        // 현재 설정으로 AI 엔진 생성
+        $ai_engine = AINL_AI_Engine::get_instance();
+        
+        // 설정 확인
+        if (!$ai_engine->is_configured()) {
+            wp_send_json_error(array(
+                'message' => 'API 키가 설정되지 않았습니다. 먼저 AI 제공업체와 API 키를 설정하세요.'
+            ));
+        }
+        
+        // 현재 제공업체 확인
+        $settings = get_option('ainl_settings', array());
+        $current_provider = $settings['ai']['provider'] ?? 'openai';
+        
+        // API 연결 테스트 실행
+        $test_result = $ai_engine->test_api_connection();
+        
+        if ($test_result['success']) {
+            wp_send_json_success(array(
+                'message' => $test_result['message'],
+                'provider' => $current_provider,
+                'response' => $test_result['response'] ?? ''
+            ));
+        } else {
+            wp_send_json_error(array(
+                'message' => $test_result['message'],
+                'provider' => $current_provider
+            ));
+        }
     }
 } 

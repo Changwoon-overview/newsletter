@@ -151,6 +151,7 @@ class AINL_Settings {
                 'field' => 'ai.provider',
                 'options' => array(
                     'openai' => 'OpenAI',
+                    'groq' => 'Groq (빠른 추론)',
                     'claude' => 'Anthropic Claude'
                 ),
                 'description' => '사용할 AI 서비스 제공업체'
@@ -167,6 +168,19 @@ class AINL_Settings {
             array(
                 'field' => 'ai.openai_api_key',
                 'description' => 'OpenAI API 키 (sk-로 시작)'
+            )
+        );
+        
+        // Groq API 키
+        add_settings_field(
+            'groq_api_key',
+            'Groq API 키',
+            array($this, 'password_field_callback'),
+            'ainl_settings',
+            'ainl_ai_section',
+            array(
+                'field' => 'ai.groq_api_key',
+                'description' => 'Groq API 키 (gsk_로 시작, console.groq.com에서 발급)'
             )
         );
         
@@ -193,9 +207,17 @@ class AINL_Settings {
             array(
                 'field' => 'ai.model',
                 'options' => array(
-                    'gpt-3.5-turbo' => 'GPT-3.5 Turbo',
-                    'gpt-4' => 'GPT-4',
-                    'gpt-4-turbo' => 'GPT-4 Turbo',
+                    // OpenAI 모델
+                    'gpt-3.5-turbo' => 'GPT-3.5 Turbo (OpenAI)',
+                    'gpt-4' => 'GPT-4 (OpenAI)',
+                    'gpt-4-turbo' => 'GPT-4 Turbo (OpenAI)',
+                    // Groq 모델
+                    'llama-3.3-70b-versatile' => 'Llama 3.3 70B (Groq)',
+                    'llama-3.1-70b-versatile' => 'Llama 3.1 70B (Groq)',
+                    'llama-3.1-8b-instant' => 'Llama 3.1 8B Instant (Groq)',
+                    'mixtral-8x7b-32768' => 'Mixtral 8x7B (Groq)',
+                    'gemma2-9b-it' => 'Gemma 2 9B (Groq)',
+                    // Claude 모델
                     'claude-3-haiku' => 'Claude 3 Haiku',
                     'claude-3-sonnet' => 'Claude 3 Sonnet'
                 ),
