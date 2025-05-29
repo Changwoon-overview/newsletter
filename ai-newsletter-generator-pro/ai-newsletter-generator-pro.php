@@ -458,8 +458,8 @@ class AI_Newsletter_Generator_Pro {
         global $wpdb;
         
         // 통계 데이터 가져오기
-        $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
-        $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+        $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers'; // 새로운 테이블명
+        $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters';   // 새로운 테이블명
         
         $total_subscribers = $wpdb ? $wpdb->get_var("SELECT COUNT(*) FROM $subscribers_table WHERE status = 'active'") : 0;
         $total_campaigns = $wpdb ? $wpdb->get_var("SELECT COUNT(*) FROM $campaigns_table") : 0;
@@ -694,7 +694,7 @@ class AI_Newsletter_Generator_Pro {
      */
     private function render_subscribers_tab() {
         global $wpdb;
-        $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+        $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers'; // 새로운 테이블명
         
         echo '<div class="subscribers-management">';
         echo '<h3>구독자 관리</h3>';
@@ -755,7 +755,7 @@ class AI_Newsletter_Generator_Pro {
      */
     private function render_campaigns_tab() {
         global $wpdb;
-        $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+        $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters'; // 새로운 테이블명
         
         echo '<div class="campaigns-history">';
         
@@ -1472,17 +1472,25 @@ class AI_Newsletter_Generator_Pro {
         }
         
         try {
-            // 기존 테이블 구조 확인 및 삭제 (잘못된 구조 수정)
-            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
-            $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+            // 고유한 테이블명 사용 (다른 플러그인과 충돌 방지)
+            $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters';  // 테이블명 변경
+            $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers'; // 테이블명 변경
             
-            // 기존 테이블 삭제 (구조 문제가 있을 수 있으므로)
+            error_log('AINL Debug: 새로운 테이블명 사용 - campaigns: ' . $campaigns_table . ', subscribers: ' . $subscribers_table);
+            
+            // 외래 키 제약 조건 비활성화 (MySQL 전용)
+            $wpdb->query("SET FOREIGN_KEY_CHECKS = 0");
+            
+            // 기존 테이블 강제 삭제 (외래 키 제약 조건 무시)
             $wpdb->query("DROP TABLE IF EXISTS $campaigns_table");
             $wpdb->query("DROP TABLE IF EXISTS $subscribers_table");
             
-            error_log('AINL Debug: 기존 테이블 삭제 완료');
+            // 외래 키 제약 조건 다시 활성화
+            $wpdb->query("SET FOREIGN_KEY_CHECKS = 1");
             
-            // 뉴스레터 구독자 테이블 생성
+            error_log('AINL Debug: 기존 테이블 강제 삭제 완료');
+            
+            // 뉴스레터 구독자 테이블 생성 (단순한 구조)
             $sql_subscribers = "CREATE TABLE $subscribers_table (
                 id int(11) NOT NULL AUTO_INCREMENT,
                 email varchar(255) NOT NULL,
@@ -1495,7 +1503,7 @@ class AI_Newsletter_Generator_Pro {
                 KEY status (status)
             ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
             
-            // 뉴스레터 캠페인 테이블 생성 (올바른 구조로)
+            // 뉴스레터 캠페인 테이블 생성 (단순한 구조, 외래 키 없음)
             $sql_campaigns = "CREATE TABLE $campaigns_table (
                 id int(11) NOT NULL AUTO_INCREMENT,
                 title varchar(500) NOT NULL,
@@ -1517,14 +1525,18 @@ class AI_Newsletter_Generator_Pro {
             
             if ($result1 === false || $result2 === false) {
                 error_log('AINL Debug: 테이블 생성 실패 - 마지막 오류: ' . $wpdb->last_error);
+                return false;
             }
             
             // 테이블 구조 확인
             $table_structure = $wpdb->get_results("DESCRIBE $campaigns_table");
-            error_log('AINL Debug: 캠페인 테이블 구조: ' . print_r($table_structure, true));
+            error_log('AINL Debug: 새 캠페인 테이블 구조: ' . print_r($table_structure, true));
+            
+            return true;
             
         } catch (Exception $e) {
             error_log('AINL Plugin Database Error: ' . $e->getMessage());
+            return false;
         }
     }
     
@@ -1606,7 +1618,7 @@ class AI_Newsletter_Generator_Pro {
                 exit;
             }
             
-            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+            $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters'; // 새로운 테이블명 사용
             error_log('AINL Debug: 캠페인 테이블명: ' . $campaigns_table);
             
             // 4단계: 테이블 존재 여부 및 구조 확인
@@ -1773,7 +1785,7 @@ class AI_Newsletter_Generator_Pro {
             }
             
             global $wpdb;
-            $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+            $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers'; // 새로운 테이블명
             
             $name = sanitize_text_field($_POST['subscriber_name']);
             $email = sanitize_email($_POST['subscriber_email']);
@@ -1882,8 +1894,8 @@ class AI_Newsletter_Generator_Pro {
         try {
             // 테이블 강제 재생성
             global $wpdb;
-            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
-            $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+            $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters';  // 새로운 테이블명
+            $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers'; // 새로운 테이블명
             
             // 기존 테이블 삭제
             $wpdb->query("DROP TABLE IF EXISTS $campaigns_table");
