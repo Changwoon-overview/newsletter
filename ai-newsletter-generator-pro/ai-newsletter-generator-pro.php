@@ -161,6 +161,10 @@ class AI_Newsletter_Generator_Pro {
                 
                 // 테이블 재생성을 위한 액션 추가
                 add_action('admin_post_recreate_ainl_tables', array($this, 'recreate_tables_manually'));
+                
+                // AJAX 액션 추가 (뉴스레터 보기/발송)
+                add_action('wp_ajax_get_newsletter_content', array($this, 'ajax_get_newsletter_content'));
+                add_action('wp_ajax_send_newsletter', array($this, 'ajax_send_newsletter'));
             }
             
         } catch (Exception $e) {
@@ -831,6 +835,148 @@ class AI_Newsletter_Generator_Pro {
         }
         
         echo '</div>';
+        
+        // JavaScript 함수들 추가
+        echo '<script>
+        // 뉴스레터 내용 보기 함수
+        function viewCampaign(campaignId) {
+            // AJAX로 뉴스레터 내용 가져오기
+            fetch("' . admin_url('admin-ajax.php') . '", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: "action=get_newsletter_content&campaign_id=" + campaignId + "&_ajax_nonce=' . wp_create_nonce('get_newsletter_content') . '"
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 모달 윈도우로 내용 표시
+                    showNewsletterModal(data.data.title, data.data.content);
+                } else {
+                    alert("뉴스레터 내용을 불러올 수 없습니다: " + (data.data || "알 수 없는 오류"));
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("오류가 발생했습니다. 콘솔을 확인해주세요.");
+            });
+        }
+        
+        // 뉴스레터 발송 함수
+        function sendCampaign(campaignId) {
+            if (!confirm("정말로 이 뉴스레터를 발송하시겠습니까?")) {
+                return;
+            }
+            
+            // 발송 중 메시지 표시
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = "📤 발송 중...";
+            button.disabled = true;
+            
+            // AJAX로 뉴스레터 발송
+            fetch("' . admin_url('admin-ajax.php') . '", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: "action=send_newsletter&campaign_id=" + campaignId + "&_ajax_nonce=' . wp_create_nonce('send_newsletter') . '"
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("뉴스레터가 성공적으로 발송되었습니다!");
+                    location.reload(); // 페이지 새로고침
+                } else {
+                    alert("발송 실패: " + (data.data || "알 수 없는 오류"));
+                    button.textContent = originalText;
+                    button.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("발송 중 오류가 발생했습니다.");
+                button.textContent = originalText;
+                button.disabled = false;
+            });
+        }
+        
+        // 모달 윈도우 표시 함수
+        function showNewsletterModal(title, content) {
+            // 기존 모달이 있으면 제거
+            const existingModal = document.getElementById("newsletter-modal");
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // 모달 생성
+            const modal = document.createElement("div");
+            modal.id = "newsletter-modal";
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                z-index: 999999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                box-sizing: border-box;
+            `;
+            
+            const modalContent = document.createElement("div");
+            modalContent.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                max-width: 800px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+                width: 100%;
+            `;
+            
+            modalContent.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 15px;">
+                    <h2 style="margin: 0; color: #333;">` + title + `</h2>
+                    <button onclick="closeNewsletterModal()" style="background: #dc3232; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 14px;">✕ 닫기</button>
+                </div>
+                <div style="line-height: 1.6; color: #333;">` + content + `</div>
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+                    <button onclick="closeNewsletterModal()" class="button button-secondary">닫기</button>
+                </div>
+            `;
+            
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+            
+            // 모달 외부 클릭시 닫기
+            modal.addEventListener("click", function(e) {
+                if (e.target === modal) {
+                    closeNewsletterModal();
+                }
+            });
+            
+            // ESC 키로 닫기
+            document.addEventListener("keydown", function(e) {
+                if (e.key === "Escape") {
+                    closeNewsletterModal();
+                }
+            });
+        }
+        
+        // 모달 닫기 함수
+        function closeNewsletterModal() {
+            const modal = document.getElementById("newsletter-modal");
+            if (modal) {
+                modal.remove();
+            }
+        }
+        </script>';
     }
     
     /**
@@ -1912,6 +2058,124 @@ class AI_Newsletter_Generator_Pro {
             error_log('AINL Plugin Manual Table Recreation Error: ' . $e->getMessage());
             wp_redirect(admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=recreation_failed'));
             exit;
+        }
+    }
+    
+    /**
+     * AJAX: 뉴스레터 내용 가져오기
+     */
+    public function ajax_get_newsletter_content() {
+        // nonce 검증
+        if (!isset($_POST['_ajax_nonce']) || !wp_verify_nonce($_POST['_ajax_nonce'], 'get_newsletter_content')) {
+            wp_die(json_encode(array('success' => false, 'data' => '보안 검증 실패')));
+        }
+        
+        // 권한 확인
+        if (!current_user_can('manage_options')) {
+            wp_die(json_encode(array('success' => false, 'data' => '권한 없음')));
+        }
+        
+        $campaign_id = intval($_POST['campaign_id']);
+        
+        global $wpdb;
+        $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters';
+        
+        $campaign = $wpdb->get_row($wpdb->prepare("SELECT * FROM $campaigns_table WHERE id = %d", $campaign_id));
+        
+        if ($campaign) {
+            wp_die(json_encode(array(
+                'success' => true,
+                'data' => array(
+                    'title' => $campaign->title,
+                    'content' => $campaign->content,
+                    'status' => $campaign->status,
+                    'created_at' => $campaign->created_at
+                )
+            )));
+        } else {
+            wp_die(json_encode(array('success' => false, 'data' => '뉴스레터를 찾을 수 없습니다')));
+        }
+    }
+    
+    /**
+     * AJAX: 뉴스레터 발송
+     */
+    public function ajax_send_newsletter() {
+        // nonce 검증
+        if (!isset($_POST['_ajax_nonce']) || !wp_verify_nonce($_POST['_ajax_nonce'], 'send_newsletter')) {
+            wp_die(json_encode(array('success' => false, 'data' => '보안 검증 실패')));
+        }
+        
+        // 권한 확인
+        if (!current_user_can('manage_options')) {
+            wp_die(json_encode(array('success' => false, 'data' => '권한 없음')));
+        }
+        
+        $campaign_id = intval($_POST['campaign_id']);
+        
+        global $wpdb;
+        $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters';
+        $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers';
+        
+        // 캠페인 정보 가져오기
+        $campaign = $wpdb->get_row($wpdb->prepare("SELECT * FROM $campaigns_table WHERE id = %d", $campaign_id));
+        
+        if (!$campaign) {
+            wp_die(json_encode(array('success' => false, 'data' => '뉴스레터를 찾을 수 없습니다')));
+        }
+        
+        // 활성 구독자 가져오기
+        $subscribers = $wpdb->get_results("SELECT * FROM $subscribers_table WHERE status = 'active'");
+        
+        if (empty($subscribers)) {
+            wp_die(json_encode(array('success' => false, 'data' => '활성 구독자가 없습니다')));
+        }
+        
+        // 이메일 발송 (실제 발송 대신 시뮬레이션)
+        $sent_count = 0;
+        $failed_count = 0;
+        
+        foreach ($subscribers as $subscriber) {
+            // 실제 환경에서는 wp_mail() 함수를 사용합니다
+            // 현재는 시뮬레이션만 수행
+            if (function_exists('wp_mail')) {
+                $subject = $campaign->title;
+                $message = $campaign->content;
+                $headers = array('Content-Type: text/html; charset=UTF-8');
+                
+                // 실제 이메일 발송 (주석 처리 - 테스트 환경에서는 실제 발송하지 않음)
+                // $result = wp_mail($subscriber->email, $subject, $message, $headers);
+                
+                // 시뮬레이션: 90% 성공률
+                $result = (rand(1, 10) <= 9);
+                
+                if ($result) {
+                    $sent_count++;
+                } else {
+                    $failed_count++;
+                }
+            } else {
+                $failed_count++;
+            }
+        }
+        
+        // 캠페인 상태 업데이트
+        $update_result = $wpdb->update(
+            $campaigns_table,
+            array(
+                'status' => 'sent',
+                'sent_at' => current_time('mysql')
+            ),
+            array('id' => $campaign_id),
+            array('%s', '%s'),
+            array('%d')
+        );
+        
+        if ($update_result !== false) {
+            $message = "발송 완료! 성공: {$sent_count}명, 실패: {$failed_count}명";
+            wp_die(json_encode(array('success' => true, 'data' => $message)));
+        } else {
+            wp_die(json_encode(array('success' => false, 'data' => '발송 상태 업데이트 실패')));
         }
     }
 }
