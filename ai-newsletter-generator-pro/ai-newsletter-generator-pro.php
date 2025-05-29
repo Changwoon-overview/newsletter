@@ -947,10 +947,10 @@ class AI_Newsletter_Generator_Pro {
         echo '<tr class="api-key-row openai-key">';
         echo '<th scope="row">OpenAI API 키</th>';
         echo '<td>';
-        echo '<div style="position: relative; display: inline-block; width: 100%;">';
-        echo '<input type="password" name="ainl_openai_api_key" id="openai_api_key" value="' . esc_attr(get_option('ainl_openai_api_key', '')) . '" class="regular-text" placeholder="sk-..." />';
-        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'openai_api_key\')" style="margin-left: 5px;">';
-        echo '<span class="dashicons dashicons-visibility" id="openai_api_key_icon"></span>';
+        echo '<div style="position: relative; display: flex; align-items: center; width: 100%;">';
+        echo '<input type="password" name="ainl_openai_api_key" id="openai_api_key" value="' . esc_attr(get_option('ainl_openai_api_key', '')) . '" class="regular-text" placeholder="sk-..." style="flex: 1; margin-right: 5px;" />';
+        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'openai_api_key\')" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; min-width: 32px; border: 1px solid #ddd; background: #fff;">';
+        echo '<span class="dashicons dashicons-visibility" id="openai_api_key_icon" style="color: #000000; font-size: 16px; line-height: 1;"></span>';
         echo '</button>';
         echo '</div>';
         echo '<p class="description">OpenAI API 키를 입력하세요. <a href="https://platform.openai.com/api-keys" target="_blank">API 키 생성</a></p>';
@@ -961,10 +961,10 @@ class AI_Newsletter_Generator_Pro {
         echo '<tr class="api-key-row claude-key">';
         echo '<th scope="row">Claude API 키</th>';
         echo '<td>';
-        echo '<div style="position: relative; display: inline-block; width: 100%;">';
-        echo '<input type="password" name="ainl_claude_api_key" id="claude_api_key" value="' . esc_attr(get_option('ainl_claude_api_key', '')) . '" class="regular-text" placeholder="sk-ant-..." />';
-        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'claude_api_key\')" style="margin-left: 5px;">';
-        echo '<span class="dashicons dashicons-visibility" id="claude_api_key_icon"></span>';
+        echo '<div style="position: relative; display: flex; align-items: center; width: 100%;">';
+        echo '<input type="password" name="ainl_claude_api_key" id="claude_api_key" value="' . esc_attr(get_option('ainl_claude_api_key', '')) . '" class="regular-text" placeholder="sk-ant-..." style="flex: 1; margin-right: 5px;" />';
+        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'claude_api_key\')" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; min-width: 32px; border: 1px solid #ddd; background: #fff;">';
+        echo '<span class="dashicons dashicons-visibility" id="claude_api_key_icon" style="color: #000000; font-size: 16px; line-height: 1;"></span>';
         echo '</button>';
         echo '</div>';
         echo '<p class="description">Anthropic Claude API 키를 입력하세요. <a href="https://console.anthropic.com/" target="_blank">API 키 생성</a><br>';
@@ -976,10 +976,10 @@ class AI_Newsletter_Generator_Pro {
         echo '<tr class="api-key-row groq-key">';
         echo '<th scope="row">Groq API 키</th>';
         echo '<td>';
-        echo '<div style="position: relative; display: inline-block; width: 100%;">';
-        echo '<input type="password" name="ainl_groq_api_key" id="groq_api_key" value="' . esc_attr(get_option('ainl_groq_api_key', '')) . '" class="regular-text" placeholder="gsk_..." />';
-        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'groq_api_key\')" style="margin-left: 5px;">';
-        echo '<span class="dashicons dashicons-visibility" id="groq_api_key_icon"></span>';
+        echo '<div style="position: relative; display: flex; align-items: center; width: 100%;">';
+        echo '<input type="password" name="ainl_groq_api_key" id="groq_api_key" value="' . esc_attr(get_option('ainl_groq_api_key', '')) . '" class="regular-text" placeholder="gsk_..." style="flex: 1; margin-right: 5px;" />';
+        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'groq_api_key\')" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; min-width: 32px; border: 1px solid #ddd; background: #fff;">';
+        echo '<span class="dashicons dashicons-visibility" id="groq_api_key_icon" style="color: #000000; font-size: 16px; line-height: 1;"></span>';
         echo '</button>';
         echo '</div>';
         echo '<p class="description">Groq API 키를 입력하세요. <a href="https://console.groq.com/keys" target="_blank">API 키 생성</a> (OpenAI 호환)</p>';
@@ -1130,9 +1130,15 @@ class AI_Newsletter_Generator_Pro {
             if (field.type === "password") {
                 field.type = "text";
                 icon.className = "dashicons dashicons-hidden";
+                icon.style.color = "#000000";
+                icon.style.fontSize = "16px";
+                icon.style.lineHeight = "1";
             } else {
                 field.type = "password";
                 icon.className = "dashicons dashicons-visibility";
+                icon.style.color = "#000000";
+                icon.style.fontSize = "16px";
+                icon.style.lineHeight = "1";
             }
         }
         
