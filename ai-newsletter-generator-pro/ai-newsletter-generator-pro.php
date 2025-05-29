@@ -993,7 +993,7 @@ class AI_Newsletter_Generator_Pro {
         $current_model = get_option('ainl_ai_model', 'gpt-3.5-turbo');
         
         // OpenAI 모델들
-        echo '<optgroup label="📍 OpenAI">';
+        echo '<optgroup label="📍 OpenAI" class="openai-models">';
         echo '<option value="gpt-4o" ' . selected($current_model, 'gpt-4o', false) . '>GPT-4o (최신 멀티모달, 추천)</option>';
         echo '<option value="gpt-4o-mini" ' . selected($current_model, 'gpt-4o-mini', false) . '>GPT-4o Mini (빠르고 경제적)</option>';
         echo '<option value="o3-mini" ' . selected($current_model, 'o3-mini', false) . '>o3-Mini (2025년 최신 추론)</option>';
@@ -1002,14 +1002,14 @@ class AI_Newsletter_Generator_Pro {
         echo '</optgroup>';
         
         // Claude 모델들
-        echo '<optgroup label="🧠 Anthropic Claude">';
+        echo '<optgroup label="🧠 Anthropic Claude" class="claude-models">';
         echo '<option value="claude-3-5-sonnet-latest" ' . selected($current_model, 'claude-3-5-sonnet-latest', false) . '>Claude 3.5 Sonnet (최신, 추천)</option>';
         echo '<option value="claude-3-5-haiku-latest" ' . selected($current_model, 'claude-3-5-haiku-latest', false) . '>Claude 3.5 Haiku (빠르고 저렴)</option>';
         echo '<option value="claude-3-opus-latest" ' . selected($current_model, 'claude-3-opus-latest', false) . '>Claude 3 Opus (최고 품질)</option>';
         echo '</optgroup>';
         
         // Groq 모델들
-        echo '<optgroup label="⚡ Groq (초고속)">';
+        echo '<optgroup label="⚡ Groq (초고속)" class="groq-models">';
         echo '<option value="llama-3.3-70b-versatile" ' . selected($current_model, 'llama-3.3-70b-versatile', false) . '>Llama 3.3 70B (균형잡힌 성능)</option>';
         echo '<option value="llama-3.1-8b-instant" ' . selected($current_model, 'llama-3.1-8b-instant', false) . '>Llama 3.1 8B (초고속)</option>';
         echo '<option value="deepseek-r1-distill-llama-70b" ' . selected($current_model, 'deepseek-r1-distill-llama-70b', false) . '>DeepSeek-R1 70B (추론 특화)</option>';
@@ -1130,31 +1130,51 @@ class AI_Newsletter_Generator_Pro {
         }
         
         // AI 제공업체 변경 시 모델 옵션 필터링
-        document.getElementById("ainl_ai_provider").addEventListener("change", function() {
-            const provider = this.value;
+        function updateModelOptions() {
+            const provider = document.getElementById("ainl_ai_provider").value;
             const modelSelect = document.getElementById("ainl_ai_model");
-            const groups = modelSelect.querySelectorAll("optgroup");
+            const allGroups = modelSelect.querySelectorAll("optgroup");
             
             // 모든 그룹 숨김
-            groups.forEach(group => {
+            allGroups.forEach(group => {
                 group.style.display = "none";
             });
             
             // 선택된 제공업체의 그룹만 표시
-            const targetGroup = modelSelect.querySelector("." + provider + "-models");
-            if (targetGroup) {
-                targetGroup.style.display = "block";
-                // 첫 번째 옵션 선택
-                const firstOption = targetGroup.querySelector("option");
-                if (firstOption) {
-                    modelSelect.value = firstOption.value;
+            let targetGroupClass = "";
+            switch(provider) {
+                case "openai":
+                    targetGroupClass = "openai-models";
+                    break;
+                case "claude":
+                    targetGroupClass = "claude-models";
+                    break;
+                case "groq":
+                    targetGroupClass = "groq-models";
+                    break;
+            }
+            
+            if (targetGroupClass) {
+                const targetGroup = modelSelect.querySelector("." + targetGroupClass);
+                if (targetGroup) {
+                    targetGroup.style.display = "block";
+                    // 첫 번째 옵션 선택
+                    const firstOption = targetGroup.querySelector("option");
+                    if (firstOption) {
+                        modelSelect.value = firstOption.value;
+                    }
                 }
             }
-        });
+        }
         
-        // 페이지 로드 시 초기 설정
+        // 페이지 로드 시 이벤트 리스너 등록
         document.addEventListener("DOMContentLoaded", function() {
-            document.getElementById("ainl_ai_provider").dispatchEvent(new Event("change"));
+            const providerSelect = document.getElementById("ainl_ai_provider");
+            if (providerSelect) {
+                providerSelect.addEventListener("change", updateModelOptions);
+                // 초기 로드 시 현재 선택된 제공업체에 맞는 모델 그룹 표시
+                updateModelOptions();
+            }
         });
         </script>';
         
