@@ -967,7 +967,8 @@ class AI_Newsletter_Generator_Pro {
         echo '<span class="dashicons dashicons-visibility" id="claude_api_key_icon"></span>';
         echo '</button>';
         echo '</div>';
-        echo '<p class="description">Anthropic Claude API 키를 입력하세요. <a href="https://console.anthropic.com/" target="_blank">API 키 생성</a></p>';
+        echo '<p class="description">Anthropic Claude API 키를 입력하세요. <a href="https://console.anthropic.com/" target="_blank">API 키 생성</a><br>';
+        echo '🔒 SOC II Type 2 인증, HIPAA 호환 가능, 엔터프라이즈급 보안</p>';
         echo '</td>';
         echo '</tr>';
         
@@ -1001,11 +1002,16 @@ class AI_Newsletter_Generator_Pro {
         echo '<option value="gpt-3.5-turbo" ' . selected($current_model, 'gpt-3.5-turbo', false) . '>GPT-3.5 Turbo (경제적)</option>';
         echo '</optgroup>';
         
-        // Claude 모델들
+        // Claude 모델들 (Anthropic 공식 문서 기반)
         echo '<optgroup label="🧠 Anthropic Claude" class="claude-models">';
-        echo '<option value="claude-3-5-sonnet-latest" ' . selected($current_model, 'claude-3-5-sonnet-latest', false) . '>Claude 3.5 Sonnet (최신, 추천)</option>';
-        echo '<option value="claude-3-5-haiku-latest" ' . selected($current_model, 'claude-3-5-haiku-latest', false) . '>Claude 3.5 Haiku (빠르고 저렴)</option>';
-        echo '<option value="claude-3-opus-latest" ' . selected($current_model, 'claude-3-opus-latest', false) . '>Claude 3 Opus (최고 품질)</option>';
+        echo '<option value="claude-3-5-sonnet-latest" ' . selected($current_model, 'claude-3-5-sonnet-latest', false) . '>Claude 3.5 Sonnet (최신, 200K 컨텍스트)</option>';
+        echo '<option value="claude-3-5-sonnet-20241022" ' . selected($current_model, 'claude-3-5-sonnet-20241022', false) . '>Claude 3.5 Sonnet (2024.10)</option>';
+        echo '<option value="claude-3-5-haiku-latest" ' . selected($current_model, 'claude-3-5-haiku-latest', false) . '>Claude 3.5 Haiku (빠르고 경제적)</option>';
+        echo '<option value="claude-3-5-haiku-20241022" ' . selected($current_model, 'claude-3-5-haiku-20241022', false) . '>Claude 3.5 Haiku (2024.10)</option>';
+        echo '<option value="claude-3-opus-latest" ' . selected($current_model, 'claude-3-opus-latest', false) . '>Claude 3 Opus (최고 품질, 200K)</option>';
+        echo '<option value="claude-3-opus-20240229" ' . selected($current_model, 'claude-3-opus-20240229', false) . '>Claude 3 Opus (2024.02)</option>';
+        echo '<option value="claude-3-sonnet-20240229" ' . selected($current_model, 'claude-3-sonnet-20240229', false) . '>Claude 3 Sonnet (균형잡힌 성능)</option>';
+        echo '<option value="claude-3-haiku-20240307" ' . selected($current_model, 'claude-3-haiku-20240307', false) . '>Claude 3 Haiku (초고속)</option>';
         echo '</optgroup>';
         
         // Groq 모델들
@@ -1018,7 +1024,8 @@ class AI_Newsletter_Generator_Pro {
         echo '</optgroup>';
         
         echo '</select>';
-        echo '<p class="description">💡 <strong>추천:</strong> GPT-4o 또는 Claude 3.5 Sonnet (품질 중시) / Groq 모델들 (속도 중시)<br>📊 각 서비스의 API 키가 필요합니다. 요금제는 서비스별로 다릅니다.</p>';
+        echo '<p class="description">💡 <strong>추천:</strong> GPT-4o 또는 Claude 3.5 Sonnet (품질 중시) / Groq 모델들 (속도 중시)<br>';
+        echo '📊 각 서비스의 API 키가 필요합니다. 요금제는 서비스별로 다릅니다.</p>';
         echo '</td>';
         echo '</tr>';
         
