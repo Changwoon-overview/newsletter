@@ -820,16 +820,30 @@ class AI_Newsletter_Generator_Pro {
             
             // AI 모델 저장
             if (isset($_POST['ainl_ai_model'])) {
-                $model = sanitize_text_field($_POST['ainl_ai_model']);
-                // 허용된 모델 목록 검증
-                $allowed_models = [
-                    'gpt-4o', 'gpt-4', 'gpt-3.5-turbo', // OpenAI
-                    'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307', // Claude
-                    'llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'gemma2-9b-it' // Groq
-                ];
-                if (in_array($model, $allowed_models)) {
-                    update_option('ainl_ai_model', $model);
-                }
+                update_option('ainl_ai_model', sanitize_text_field($_POST['ainl_ai_model']));
+            }
+            
+            // AI 매개변수 저장
+            if (isset($_POST['ainl_ai_tone'])) {
+                update_option('ainl_ai_tone', sanitize_text_field($_POST['ainl_ai_tone']));
+            }
+            
+            if (isset($_POST['ainl_ai_temperature'])) {
+                $temperature = floatval($_POST['ainl_ai_temperature']);
+                $temperature = max(0, min(2, $temperature)); // 0-2 범위로 제한
+                update_option('ainl_ai_temperature', $temperature);
+            }
+            
+            if (isset($_POST['ainl_ai_max_tokens'])) {
+                $max_tokens = intval($_POST['ainl_ai_max_tokens']);
+                $max_tokens = max(100, min(4000, $max_tokens)); // 100-4000 범위로 제한
+                update_option('ainl_ai_max_tokens', $max_tokens);
+            }
+            
+            if (isset($_POST['ainl_ai_top_p'])) {
+                $top_p = floatval($_POST['ainl_ai_top_p']);
+                $top_p = max(0.1, min(1, $top_p)); // 0.1-1 범위로 제한
+                update_option('ainl_ai_top_p', $top_p);
             }
             
             // AI 생성 옵션들 저장 (체크박스)
@@ -975,31 +989,36 @@ class AI_Newsletter_Generator_Pro {
         echo '<tr>';
         echo '<th scope="row">AI 모델</th>';
         echo '<td>';
-        echo '<select name="ainl_ai_model" id="ainl_ai_model">';
+        echo '<select name="ainl_ai_model" id="ainl_ai_model" class="regular-text">';
         $current_model = get_option('ainl_ai_model', 'gpt-3.5-turbo');
         
         // OpenAI 모델들
-        echo '<optgroup label="OpenAI" class="model-group openai-models">';
-        echo '<option value="gpt-4o"' . selected($current_model, 'gpt-4o', false) . '>GPT-4o (최신)</option>';
-        echo '<option value="gpt-4"' . selected($current_model, 'gpt-4', false) . '>GPT-4</option>';
-        echo '<option value="gpt-3.5-turbo"' . selected($current_model, 'gpt-3.5-turbo', false) . '>GPT-3.5 Turbo</option>';
+        echo '<optgroup label="📍 OpenAI">';
+        echo '<option value="gpt-4o" ' . selected($current_model, 'gpt-4o', false) . '>GPT-4o (최신 멀티모달, 추천)</option>';
+        echo '<option value="gpt-4o-mini" ' . selected($current_model, 'gpt-4o-mini', false) . '>GPT-4o Mini (빠르고 경제적)</option>';
+        echo '<option value="o3-mini" ' . selected($current_model, 'o3-mini', false) . '>o3-Mini (2025년 최신 추론)</option>';
+        echo '<option value="gpt-4-turbo" ' . selected($current_model, 'gpt-4-turbo', false) . '>GPT-4 Turbo (안정적)</option>';
+        echo '<option value="gpt-3.5-turbo" ' . selected($current_model, 'gpt-3.5-turbo', false) . '>GPT-3.5 Turbo (경제적)</option>';
         echo '</optgroup>';
         
         // Claude 모델들
-        echo '<optgroup label="Anthropic Claude" class="model-group claude-models">';
-        echo '<option value="claude-3-5-sonnet-20241022"' . selected($current_model, 'claude-3-5-sonnet-20241022', false) . '>Claude 3.5 Sonnet</option>';
-        echo '<option value="claude-3-haiku-20240307"' . selected($current_model, 'claude-3-haiku-20240307', false) . '>Claude 3 Haiku</option>';
+        echo '<optgroup label="🧠 Anthropic Claude">';
+        echo '<option value="claude-3-5-sonnet-latest" ' . selected($current_model, 'claude-3-5-sonnet-latest', false) . '>Claude 3.5 Sonnet (최신, 추천)</option>';
+        echo '<option value="claude-3-5-haiku-latest" ' . selected($current_model, 'claude-3-5-haiku-latest', false) . '>Claude 3.5 Haiku (빠르고 저렴)</option>';
+        echo '<option value="claude-3-opus-latest" ' . selected($current_model, 'claude-3-opus-latest', false) . '>Claude 3 Opus (최고 품질)</option>';
         echo '</optgroup>';
         
         // Groq 모델들
-        echo '<optgroup label="Groq" class="model-group groq-models">';
-        echo '<option value="llama-3.3-70b-versatile"' . selected($current_model, 'llama-3.3-70b-versatile', false) . '>Llama 3.3 70B</option>';
-        echo '<option value="llama-3.1-70b-versatile"' . selected($current_model, 'llama-3.1-70b-versatile', false) . '>Llama 3.1 70B</option>';
-        echo '<option value="gemma2-9b-it"' . selected($current_model, 'gemma2-9b-it', false) . '>Gemma 2 9B</option>';
+        echo '<optgroup label="⚡ Groq (초고속)">';
+        echo '<option value="llama-3.3-70b-versatile" ' . selected($current_model, 'llama-3.3-70b-versatile', false) . '>Llama 3.3 70B (균형잡힌 성능)</option>';
+        echo '<option value="llama-3.1-8b-instant" ' . selected($current_model, 'llama-3.1-8b-instant', false) . '>Llama 3.1 8B (초고속)</option>';
+        echo '<option value="deepseek-r1-distill-llama-70b" ' . selected($current_model, 'deepseek-r1-distill-llama-70b', false) . '>DeepSeek-R1 70B (추론 특화)</option>';
+        echo '<option value="mixtral-8x7b-32768" ' . selected($current_model, 'mixtral-8x7b-32768', false) . '>Mixtral 8x7B (긴 컨텍스트)</option>';
+        echo '<option value="gemma2-9b-it" ' . selected($current_model, 'gemma2-9b-it', false) . '>Gemma 2 9B (Google)</option>';
         echo '</optgroup>';
         
         echo '</select>';
-        echo '<p class="description">선택한 AI 서비스에서 사용할 모델을 선택하세요.</p>';
+        echo '<p class="description">💡 <strong>추천:</strong> GPT-4o 또는 Claude 3.5 Sonnet (품질 중시) / Groq 모델들 (속도 중시)<br>📊 각 서비스의 API 키가 필요합니다. 요금제는 서비스별로 다릅니다.</p>';
         echo '</td>';
         echo '</tr>';
         
@@ -1012,6 +1031,80 @@ class AI_Newsletter_Generator_Pro {
         echo '<label><input type="checkbox" name="ainl_ai_add_intro" value="1" ' . checked(get_option('ainl_ai_add_intro', 1), 1, false) . ' /> 인사말 자동 생성</label>';
         echo '</td>';
         echo '</tr>';
+        
+        // AI 매개변수 설정
+        echo '<tr>
+            <th scope="row">
+                <label for="ainl_ai_tone">톤앤매너</label>
+            </th>
+            <td>
+                <select name="ainl_ai_tone" id="ainl_ai_tone" class="regular-text">
+                    <option value="professional" <?php selected(get_option('ainl_ai_tone'), 'professional'); ?>>전문적인</option>
+                    <option value="friendly" <?php selected(get_option('ainl_ai_tone'), 'friendly'); ?>>친근한</option>
+                    <option value="formal" <?php selected(get_option('ainl_ai_tone'), 'formal'); ?>>공식적인</option>
+                    <option value="casual" <?php selected(get_option('ainl_ai_tone'), 'casual'); ?>>캐주얼한</option>
+                    <option value="enthusiastic" <?php selected(get_option('ainl_ai_tone'), 'enthusiastic'); ?>>열정적인</option>
+                    <option value="informative" <?php selected(get_option('ainl_ai_tone'), 'informative'); ?>>정보전달형</option>
+                </select>
+                <p class="description">뉴스레터에 사용할 글의 톤앤매너를 선택하세요.</p>
+            </td>
+        </tr>';
+        
+        // AI 매개변수 설정
+        echo '<tr>
+            <th scope="row">
+                <label>AI 고급 설정</label>
+            </th>
+            <td>
+                <table class="form-table" style="margin: 0;">
+                    <tr>
+                        <td style="padding: 5px 0;">
+                            <label for="ainl_ai_temperature" style="display: inline-block; width: 120px;"><strong>Temperature:</strong></label>
+                            <input type="range" name="ainl_ai_temperature" id="ainl_ai_temperature" 
+                                   min="0" max="2" step="0.1" 
+                                   value="<?php echo esc_attr(get_option('ainl_ai_temperature', '0.7')); ?>"
+                                   style="width: 200px;" 
+                                   oninput="document.getElementById('temperature_value').textContent = this.value">
+                            <span id="temperature_value" style="margin-left: 10px; font-weight: bold;">
+                                <?php echo esc_html(get_option('ainl_ai_temperature', '0.7')); ?>
+                            </span>
+                            <p class="description" style="margin-left: 120px; margin-top: 5px;">
+                                창의성 조절 (0=일관성, 2=창의적) - 추천: 0.7
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px 0;">
+                            <label for="ainl_ai_max_tokens" style="display: inline-block; width: 120px;"><strong>Max Tokens:</strong></label>
+                            <input type="number" name="ainl_ai_max_tokens" id="ainl_ai_max_tokens" 
+                                   min="100" max="4000" 
+                                   value="<?php echo esc_attr(get_option('ainl_ai_max_tokens', '1500')); ?>"
+                                   style="width: 100px;">
+                            <span style="margin-left: 10px; color: #666;">토큰</span>
+                            <p class="description" style="margin-left: 120px; margin-top: 5px;">
+                                생성할 최대 글자 수 (한글 기준 약 1토큰=1글자) - 추천: 1500
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px 0;">
+                            <label for="ainl_ai_top_p" style="display: inline-block; width: 120px;"><strong>Top-p:</strong></label>
+                            <input type="range" name="ainl_ai_top_p" id="ainl_ai_top_p" 
+                                   min="0.1" max="1" step="0.05" 
+                                   value="<?php echo esc_attr(get_option('ainl_ai_top_p', '0.9')); ?>"
+                                   style="width: 200px;" 
+                                   oninput="document.getElementById('top_p_value').textContent = this.value">
+                            <span id="top_p_value" style="margin-left: 10px; font-weight: bold;">
+                                <?php echo esc_html(get_option('ainl_ai_top_p', '0.9')); ?>
+                            </span>
+                            <p class="description" style="margin-left: 120px; margin-top: 5px;">
+                                다양성 조절 (0.1=보수적, 1=다양함) - 추천: 0.9
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>';
         
         echo '</table>';
         echo '</div>';
