@@ -166,6 +166,10 @@ class AI_Newsletter_Generator_Pro {
                 add_action('wp_ajax_get_newsletter_content', array($this, 'ajax_get_newsletter_content'));
                 add_action('wp_ajax_send_newsletter', array($this, 'ajax_send_newsletter'));
                 
+                // 구독자 관리를 위한 AJAX 액션 추가
+                add_action('wp_ajax_toggle_subscriber_status', array($this, 'ajax_toggle_subscriber_status'));
+                add_action('wp_ajax_delete_subscriber', array($this, 'ajax_delete_subscriber'));
+                
                 // 구독 취소 액션 추가 (로그인하지 않은 사용자도 접근 가능)
                 add_action('wp_ajax_nopriv_unsubscribe', array($this, 'handle_unsubscribe'));
                 add_action('wp_ajax_unsubscribe', array($this, 'handle_unsubscribe'));
@@ -705,6 +709,24 @@ class AI_Newsletter_Generator_Pro {
         $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers'; // 새로운 테이블명
         
         echo '<div class="subscribers-management">';
+        
+        // 성공/오류 메시지 표시
+        if (isset($_GET['subscriber_added']) && $_GET['subscriber_added'] == 'true') {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>✅ 구독자가 성공적으로 추가되었습니다!</strong></p></div>';
+        }
+        if (isset($_GET['subscriber_updated']) && $_GET['subscriber_updated'] == 'true') {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>✅ 구독자 상태가 변경되었습니다!</strong></p></div>';
+        }
+        if (isset($_GET['subscriber_deleted']) && $_GET['subscriber_deleted'] == 'true') {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>✅ 구독자가 삭제되었습니다!</strong></p></div>';
+        }
+        if (isset($_GET['duplicate']) && $_GET['duplicate'] == 'true') {
+            echo '<div class="notice notice-warning is-dismissible"><p><strong>⚠️ 이미 등록된 이메일 주소입니다!</strong></p></div>';
+        }
+        if (isset($_GET['error']) && $_GET['error'] == 'true') {
+            echo '<div class="notice notice-error is-dismissible"><p><strong>❌ 처리 중 오류가 발생했습니다.</strong> 다시 시도해주세요.</p></div>';
+        }
+        
         echo '<h3>구독자 관리</h3>';
         
         // 구독자 추가 폼
@@ -737,25 +759,257 @@ class AI_Newsletter_Generator_Pro {
                 echo '<thead><tr><th>이름</th><th>이메일</th><th>상태</th><th>가입일</th><th>작업</th></tr></thead>';
                 echo '<tbody>';
                 foreach ($subscribers as $subscriber) {
-                    echo '<tr>';
+                    echo '<tr id="subscriber-row-' . $subscriber->id . '">';
                     echo '<td>' . esc_html($subscriber->name) . '</td>';
                     echo '<td>' . esc_html($subscriber->email) . '</td>';
-                    echo '<td><span class="status-' . $subscriber->status . '">' . ($subscriber->status == 'active' ? '활성' : '비활성') . '</span></td>';
+                    echo '<td><span class="status-badge status-' . $subscriber->status . '" id="status-' . $subscriber->id . '">' . ($subscriber->status == 'active' ? '✅ 활성' : '❌ 비활성') . '</span></td>';
                     echo '<td>' . date('Y-m-d', strtotime($subscriber->created_at)) . '</td>';
                     echo '<td>';
-                    echo '<button class="button button-small" onclick="toggleSubscriber(' . $subscriber->id . ')">상태 변경</button> ';
-                    echo '<button class="button button-small button-link-delete" onclick="deleteSubscriber(' . $subscriber->id . ')">삭제</button>';
+                    echo '<button class="button button-small" onclick="toggleSubscriber(' . $subscriber->id . ', \'' . $subscriber->status . '\')" id="toggle-btn-' . $subscriber->id . '">';
+                    echo ($subscriber->status == 'active' ? '비활성화' : '활성화');
+                    echo '</button> ';
+                    echo '<button class="button button-small button-link-delete" onclick="deleteSubscriber(' . $subscriber->id . ', \'' . esc_js($subscriber->email) . '\')" style="color: #dc3232;">삭제</button>';
                     echo '</td>';
                     echo '</tr>';
                 }
                 echo '</tbody>';
                 echo '</table>';
+                
+                // 구독자 관리 가이드
+                echo '<div class="subscribers-guide" style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">';
+                echo '<h4>📝 구독자 관리 가이드</h4>';
+                echo '<ul>';
+                echo '<li><strong>상태 변경:</strong> 활성/비활성 상태를 토글할 수 있습니다</li>';
+                echo '<li><strong>삭제:</strong> 구독자를 완전히 삭제합니다 (복구 불가능)</li>';
+                echo '<li><strong>활성 구독자:</strong> 뉴스레터를 받을 수 있는 구독자</li>';
+                echo '<li><strong>비활성 구독자:</strong> 뉴스레터를 받지 않는 구독자 (구독 취소한 경우)</li>';
+                echo '</ul>';
+                echo '</div>';
+                
             } else {
                 echo '<p>아직 구독자가 없습니다. 위의 폼을 사용하여 첫 구독자를 추가해보세요.</p>';
             }
         }
         
         echo '</div>';
+        
+        // JavaScript 함수들 추가 - PHP 값들을 JavaScript 변수로 전달
+        $ajax_url = admin_url('admin-ajax.php');
+        $toggle_nonce = wp_create_nonce('toggle_subscriber_status');
+        $delete_nonce = wp_create_nonce('delete_subscriber');
+        
+        echo '<script>
+        // WordPress AJAX URL과 nonce 값들을 JavaScript 변수로 설정
+        var ainlAjaxUrl = "' . esc_js($ajax_url) . '";
+        var ainlToggleNonce = "' . esc_js($toggle_nonce) . '";
+        var ainlDeleteNonce = "' . esc_js($delete_nonce) . '";
+        
+        // 구독자 상태 토글 함수
+        function toggleSubscriber(subscriberId, currentStatus) {
+            if (!confirm("정말로 이 구독자의 상태를 변경하시겠습니까?")) {
+                return;
+            }
+            
+            const button = document.getElementById("toggle-btn-" + subscriberId);
+            const statusBadge = document.getElementById("status-" + subscriberId);
+            
+            if (!button || !statusBadge) {
+                alert("요소를 찾을 수 없습니다. 페이지를 새로고침해보세요.");
+                return;
+            }
+            
+            // 버튼 비활성화 및 로딩 상태 표시
+            button.disabled = true;
+            button.textContent = "처리 중...";
+            
+            // AJAX 요청을 위한 데이터 준비
+            var formData = new FormData();
+            formData.append("action", "toggle_subscriber_status");
+            formData.append("subscriber_id", subscriberId);
+            formData.append("current_status", currentStatus);
+            formData.append("_ajax_nonce", ainlToggleNonce);
+            
+            // AJAX 요청
+            fetch(ainlAjaxUrl, {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Toggle response:", data); // 디버깅용
+                
+                if (data.success) {
+                    // 성공 시 UI 업데이트
+                    const newStatus = data.data.new_status;
+                    if (newStatus === "active") {
+                        button.textContent = "비활성화";
+                        statusBadge.textContent = "✅ 활성";
+                        statusBadge.className = "status-badge status-active";
+                    } else {
+                        button.textContent = "활성화";
+                        statusBadge.textContent = "❌ 비활성";
+                        statusBadge.className = "status-badge status-inactive";
+                    }
+                    
+                    // onclick 속성 업데이트
+                    button.setAttribute("onclick", "toggleSubscriber(" + subscriberId + ", \'" + newStatus + "\')");
+                    
+                    // 성공 메시지 표시
+                    showNotification("구독자 상태가 변경되었습니다!", "success");
+                } else {
+                    throw new Error(data.data || "알 수 없는 오류");
+                }
+            })
+            .catch(error => {
+                console.error("Toggle error:", error);
+                alert("상태 변경 실패: " + error.message);
+            })
+            .finally(() => {
+                // 버튼 상태 복원
+                button.disabled = false;
+                // 버튼 텍스트는 성공 시 이미 업데이트됨
+                if (button.textContent === "처리 중...") {
+                    button.textContent = (currentStatus === "active" ? "비활성화" : "활성화");
+                }
+            });
+        }
+        
+        // 구독자 삭제 함수
+        function deleteSubscriber(subscriberId, email) {
+            if (!confirm("정말로 \"" + email + "\" 구독자를 삭제하시겠습니까?\\n\\n⚠️ 이 작업은 되돌릴 수 없습니다.")) {
+                return;
+            }
+            
+            // 한 번 더 확인
+            if (!confirm("마지막 확인입니다. 정말로 삭제하시겠습니까?")) {
+                return;
+            }
+            
+            const row = document.getElementById("subscriber-row-" + subscriberId);
+            
+            if (!row) {
+                alert("요소를 찾을 수 없습니다. 페이지를 새로고침해보세요.");
+                return;
+            }
+            
+            // 행에 삭제 중 표시
+            row.style.opacity = "0.5";
+            row.style.pointerEvents = "none";
+            
+            // AJAX 요청을 위한 데이터 준비
+            var formData = new FormData();
+            formData.append("action", "delete_subscriber");
+            formData.append("subscriber_id", subscriberId);
+            formData.append("_ajax_nonce", ainlDeleteNonce);
+            
+            // AJAX 요청
+            fetch(ainlAjaxUrl, {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Delete response:", data); // 디버깅용
+                
+                if (data.success) {
+                    // 성공 시 행 제거 애니메이션
+                    row.style.transition = "all 0.3s ease";
+                    row.style.transform = "translateX(-100%)";
+                    row.style.opacity = "0";
+                    
+                    setTimeout(() => {
+                        row.remove();
+                        showNotification("구독자가 삭제되었습니다.", "success");
+                        
+                        // 테이블이 비어있으면 안내 메시지 표시
+                        const tbody = document.querySelector(".wp-list-table tbody");
+                        if (tbody && tbody.children.length === 0) {
+                            location.reload(); // 페이지 새로고침으로 "구독자 없음" 메시지 표시
+                        }
+                    }, 300);
+                } else {
+                    throw new Error(data.data || "알 수 없는 오류");
+                }
+            })
+            .catch(error => {
+                console.error("Delete error:", error);
+                alert("삭제 실패: " + error.message);
+                // 실패 시 행 상태 복원
+                row.style.opacity = "1";
+                row.style.pointerEvents = "auto";
+            });
+        }
+        
+        // 알림 메시지 표시 함수
+        function showNotification(message, type = "success") {
+            // 기존 알림 제거
+            const existingNotice = document.querySelector(".ainl-notification");
+            if (existingNotice) {
+                existingNotice.remove();
+            }
+            
+            // 새 알림 생성
+            const notice = document.createElement("div");
+            notice.className = "notice notice-" + type + " is-dismissible ainl-notification";
+            notice.style.cssText = "position: fixed; top: 32px; right: 20px; z-index: 999999; max-width: 300px;";
+            notice.innerHTML = "<p><strong>" + message + "</strong></p>";
+            
+            document.body.appendChild(notice);
+            
+            // 3초 후 자동 제거
+            setTimeout(() => {
+                if (notice.parentNode) {
+                    notice.remove();
+                }
+            }, 3000);
+        }
+        
+        // 페이지 로드 시 초기화
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("구독자 관리 JavaScript 초기화됨");
+            console.log("AJAX URL:", ainlAjaxUrl);
+            console.log("Toggle Nonce:", ainlToggleNonce);
+            console.log("Delete Nonce:", ainlDeleteNonce);
+        });
+        </script>';
+        
+        // CSS 스타일 추가
+        echo '<style>
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-inactive {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .subscribers-guide {
+            font-size: 14px;
+        }
+        .subscribers-guide ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .subscribers-guide li {
+            margin: 5px 0;
+        }
+        </style>';
     }
     
     /**
@@ -1021,41 +1275,233 @@ class AI_Newsletter_Generator_Pro {
      * 분석 통계 탭 렌더링
      */
     private function render_analytics_tab() {
+        global $wpdb;
+        
+        // 테이블명 정의
+        $campaigns_table = $wpdb->prefix . 'ainl_pro_newsletters';
+        $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers';
+        
+        // 실제 통계 데이터 계산
+        $stats = $this->calculate_real_statistics($wpdb, $campaigns_table, $subscribers_table);
+        
         echo '<div class="analytics-dashboard">';
         echo '<h3>분석 및 통계</h3>';
         echo '<p>뉴스레터 성과를 분석하고 개선점을 찾아보세요.</p>';
         
-        // 샘플 통계 데이터
+        // 실제 통계 데이터 표시
         echo '<div class="analytics-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">';
         
+        // 발송 성공률
         echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
-        echo '<h4>이번 달 발송률</h4>';
-        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">95.5%</p>';
+        echo '<h4>📤 발송 성공률</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: ' . ($stats['send_success_rate'] >= 90 ? '#46b450' : ($stats['send_success_rate'] >= 70 ? '#f56e28' : '#dc3232')) . ';">' . $stats['send_success_rate'] . '%</p>';
+        echo '<small style="color: #666;">총 ' . $stats['total_campaigns'] . '개 캠페인 중 ' . $stats['sent_campaigns'] . '개 성공</small>';
         echo '</div>';
         
+        // 활성 구독자 비율
         echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
-        echo '<h4>평균 오픈률</h4>';
-        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">42.3%</p>';
+        echo '<h4>👥 활성 구독자율</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: ' . ($stats['active_subscriber_rate'] >= 90 ? '#46b450' : ($stats['active_subscriber_rate'] >= 70 ? '#f56e28' : '#dc3232')) . ';">' . $stats['active_subscriber_rate'] . '%</p>';
+        echo '<small style="color: #666;">총 ' . $stats['total_subscribers'] . '명 중 ' . $stats['active_subscribers'] . '명 활성</small>';
         echo '</div>';
         
+        // 이번 달 활동
         echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
-        echo '<h4>클릭률</h4>';
-        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">12.8%</p>';
+        echo '<h4>📅 이번 달 발송</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">' . $stats['this_month_campaigns'] . '건</p>';
+        echo '<small style="color: #666;">' . date('Y년 m월') . ' 발송된 뉴스레터</small>';
         echo '</div>';
         
+        // 구독 취소율 (낮을수록 좋음)
         echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
-        echo '<h4>구독 취소율</h4>';
-        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">2.1%</p>';
+        echo '<h4>🚫 구독 취소율</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: ' . ($stats['unsubscribe_rate'] <= 5 ? '#46b450' : ($stats['unsubscribe_rate'] <= 15 ? '#f56e28' : '#dc3232')) . ';">' . $stats['unsubscribe_rate'] . '%</p>';
+        echo '<small style="color: #666;">' . $stats['inactive_subscribers'] . '명이 구독 취소</small>';
         echo '</div>';
         
         echo '</div>';
         
-        echo '<div class="analytics-note" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin: 20px 0;">';
-        echo '<h4>📊 분석 기능 개발 중</h4>';
-        echo '<p>더 자세한 분석 기능은 향후 업데이트에서 제공될 예정입니다. 현재는 기본 통계만 표시됩니다.</p>';
+        // 상세 분석 섹션
+        echo '<div class="detailed-analytics" style="margin-top: 30px;">';
+        
+        // 월별 발송 트렌드 (간단한 텍스트 형태)
+        echo '<div class="analytics-section" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 20px;">';
+        echo '<h4>📈 발송 트렌드</h4>';
+        echo '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 15px 0;">';
+        
+        // 최근 3개월 통계
+        for ($i = 2; $i >= 0; $i--) {
+            $month_date = date('Y-m', strtotime("-$i months"));
+            $month_name = date('Y년 m월', strtotime("-$i months"));
+            $month_campaigns = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $campaigns_table WHERE DATE_FORMAT(created_at, '%%Y-%%m') = %s",
+                $month_date
+            ));
+            
+            echo '<div style="text-align: center; padding: 10px; border: 1px solid #eee; border-radius: 3px;">';
+            echo '<div style="font-weight: bold; color: #2271b1;">' . $month_name . '</div>';
+            echo '<div style="font-size: 18px; margin: 5px 0;">' . $month_campaigns . '건</div>';
+            echo '</div>';
+        }
+        echo '</div>';
+        echo '</div>';
+        
+        // 구독자 현황
+        echo '<div class="analytics-section" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 20px;">';
+        echo '<h4>👥 구독자 현황</h4>';
+        echo '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">';
+        
+        echo '<div>';
+        echo '<h5>📊 구독자 상태별 분포</h5>';
+        echo '<ul style="list-style: none; padding: 0;">';
+        echo '<li style="margin: 8px 0; padding: 8px; background: #f0f8f0; border-left: 4px solid #46b450;">✅ 활성: ' . $stats['active_subscribers'] . '명</li>';
+        echo '<li style="margin: 8px 0; padding: 8px; background: #fff3f3; border-left: 4px solid #dc3232;">❌ 비활성: ' . $stats['inactive_subscribers'] . '명</li>';
+        echo '</ul>';
+        echo '</div>';
+        
+        echo '<div>';
+        echo '<h5>📈 가입 추이 (최근 30일)</h5>';
+        $recent_subscribers = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $subscribers_table WHERE created_at >= %s",
+            date('Y-m-d H:i:s', strtotime('-30 days'))
+        ));
+        echo '<p style="font-size: 18px; color: #2271b1; font-weight: bold;">+' . $recent_subscribers . '명</p>';
+        echo '<small style="color: #666;">지난 30일간 신규 구독자</small>';
         echo '</div>';
         
         echo '</div>';
+        echo '</div>';
+        
+        // 캠페인 성과 분석
+        echo '<div class="analytics-section" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 20px;">';
+        echo '<h4>📬 캠페인 성과</h4>';
+        
+        if ($stats['total_campaigns'] > 0) {
+            echo '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">';
+            
+            echo '<div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 5px;">';
+            echo '<div style="font-size: 24px; font-weight: bold; color: #28a745;">' . $stats['sent_campaigns'] . '</div>';
+            echo '<div style="color: #666;">발송 완료</div>';
+            echo '</div>';
+            
+            echo '<div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 5px;">';
+            echo '<div style="font-size: 24px; font-weight: bold; color: #ffc107;">' . $stats['draft_campaigns'] . '</div>';
+            echo '<div style="color: #666;">임시저장</div>';
+            echo '</div>';
+            
+            $failed_campaigns = $stats['total_campaigns'] - $stats['sent_campaigns'] - $stats['draft_campaigns'];
+            if ($failed_campaigns > 0) {
+                echo '<div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 5px;">';
+                echo '<div style="font-size: 24px; font-weight: bold; color: #dc3545;">' . $failed_campaigns . '</div>';
+                echo '<div style="color: #666;">발송 실패</div>';
+                echo '</div>';
+            }
+            
+            echo '</div>';
+        } else {
+            echo '<p style="text-align: center; color: #666; font-style: italic;">아직 생성된 캠페인이 없습니다.</p>';
+        }
+        echo '</div>';
+        
+        echo '</div>';
+        
+        // 개선사항 및 권장사항
+        echo '<div class="analytics-recommendations" style="background: #e7f3ff; padding: 20px; border-radius: 5px; margin: 20px 0;">';
+        echo '<h4>💡 성과 개선 권장사항</h4>';
+        echo '<ul>';
+        
+        if ($stats['send_success_rate'] < 90 && $stats['total_campaigns'] > 0) {
+            echo '<li><strong>발송 성공률 개선:</strong> SMTP 설정을 점검하고 발송자 인증을 확인해보세요.</li>';
+        }
+        
+        if ($stats['unsubscribe_rate'] > 10) {
+            echo '<li><strong>구독 취소율 감소:</strong> 컨텐츠 품질을 높이고 발송 빈도를 조절해보세요.</li>';
+        }
+        
+        if ($stats['this_month_campaigns'] == 0) {
+            echo '<li><strong>정기 발송:</strong> 일정한 주기로 뉴스레터를 발송하여 구독자 참여도를 높여보세요.</li>';
+        }
+        
+        if ($stats['active_subscribers'] < 10) {
+            echo '<li><strong>구독자 확보:</strong> 웹사이트에 구독 양식을 추가하고 인센티브를 제공해보세요.</li>';
+        }
+        
+        echo '<li><strong>이메일 오픈률 추적:</strong> 향후 업데이트에서 이메일 오픈률 및 클릭률 추적 기능이 추가될 예정입니다.</li>';
+        echo '</ul>';
+        echo '</div>';
+        
+        echo '</div>';
+    }
+    
+    /**
+     * 실제 통계 데이터 계산
+     */
+    private function calculate_real_statistics($wpdb, $campaigns_table, $subscribers_table) {
+        $stats = array();
+        
+        try {
+            // 전체 캠페인 수
+            $stats['total_campaigns'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $campaigns_table");
+            
+            // 발송 완료된 캠페인 수
+            $stats['sent_campaigns'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $campaigns_table WHERE status = 'sent'");
+            
+            // 임시저장 캠페인 수
+            $stats['draft_campaigns'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $campaigns_table WHERE status = 'draft'");
+            
+            // 발송 성공률 계산
+            if ($stats['total_campaigns'] > 0) {
+                $stats['send_success_rate'] = round(($stats['sent_campaigns'] / $stats['total_campaigns']) * 100, 1);
+            } else {
+                $stats['send_success_rate'] = 0;
+            }
+            
+            // 전체 구독자 수
+            $stats['total_subscribers'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $subscribers_table");
+            
+            // 활성 구독자 수
+            $stats['active_subscribers'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $subscribers_table WHERE status = 'active'");
+            
+            // 비활성 구독자 수
+            $stats['inactive_subscribers'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM $subscribers_table WHERE status = 'inactive'");
+            
+            // 활성 구독자 비율 계산
+            if ($stats['total_subscribers'] > 0) {
+                $stats['active_subscriber_rate'] = round(($stats['active_subscribers'] / $stats['total_subscribers']) * 100, 1);
+                $stats['unsubscribe_rate'] = round(($stats['inactive_subscribers'] / $stats['total_subscribers']) * 100, 1);
+            } else {
+                $stats['active_subscriber_rate'] = 0;
+                $stats['unsubscribe_rate'] = 0;
+            }
+            
+            // 이번 달 발송 캠페인 수
+            $this_month = date('Y-m');
+            $stats['this_month_campaigns'] = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $campaigns_table WHERE DATE_FORMAT(created_at, '%%Y-%%m') = %s",
+                $this_month
+            ));
+            
+            error_log('AINL Debug: 계산된 통계 - ' . json_encode($stats));
+            
+        } catch (Exception $e) {
+            error_log('AINL Debug: 통계 계산 오류 - ' . $e->getMessage());
+            
+            // 오류 시 기본값 반환
+            $stats = array(
+                'total_campaigns' => 0,
+                'sent_campaigns' => 0,
+                'draft_campaigns' => 0,
+                'send_success_rate' => 0,
+                'total_subscribers' => 0,
+                'active_subscribers' => 0,
+                'inactive_subscribers' => 0,
+                'active_subscriber_rate' => 0,
+                'unsubscribe_rate' => 0,
+                'this_month_campaigns' => 0
+            );
+        }
+        
+        return $stats;
     }
     
     /**
@@ -2500,6 +2946,177 @@ class AI_Newsletter_Generator_Pro {
         }
         
         exit;
+    }
+    
+    /**
+     * AJAX: 구독자 상태 토글
+     */
+    public function ajax_toggle_subscriber_status() {
+        // 헤더 설정
+        header('Content-Type: application/json');
+        
+        // nonce 검증
+        if (!isset($_POST['_ajax_nonce']) || !wp_verify_nonce($_POST['_ajax_nonce'], 'toggle_subscriber_status')) {
+            http_response_code(403);
+            echo json_encode(array('success' => false, 'data' => '보안 검증 실패'));
+            wp_die();
+        }
+        
+        // 권한 확인
+        if (!current_user_can('manage_options')) {
+            http_response_code(403);
+            echo json_encode(array('success' => false, 'data' => '권한 없음'));
+            wp_die();
+        }
+        
+        $subscriber_id = intval($_POST['subscriber_id']);
+        $current_status = sanitize_text_field($_POST['current_status']);
+        
+        // 입력값 검증
+        if ($subscriber_id <= 0) {
+            http_response_code(400);
+            echo json_encode(array('success' => false, 'data' => '잘못된 구독자 ID'));
+            wp_die();
+        }
+        
+        if (!in_array($current_status, array('active', 'inactive'))) {
+            http_response_code(400);
+            echo json_encode(array('success' => false, 'data' => '잘못된 상태값'));
+            wp_die();
+        }
+        
+        // 새 상태 결정
+        $new_status = ($current_status === 'active') ? 'inactive' : 'active';
+        
+        global $wpdb;
+        $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers';
+        
+        try {
+            // 구독자 존재 확인
+            $subscriber = $wpdb->get_row($wpdb->prepare("SELECT * FROM $subscribers_table WHERE id = %d", $subscriber_id));
+            
+            if (!$subscriber) {
+                http_response_code(404);
+                echo json_encode(array('success' => false, 'data' => '구독자를 찾을 수 없습니다'));
+                wp_die();
+            }
+            
+            // 상태 업데이트
+            $result = $wpdb->update(
+                $subscribers_table,
+                array(
+                    'status' => $new_status,
+                    'updated_at' => current_time('mysql')
+                ),
+                array('id' => $subscriber_id),
+                array('%s', '%s'),
+                array('%d')
+            );
+            
+            if ($result !== false) {
+                // 로그 기록
+                error_log('AINL: 구독자 상태 변경 성공 - ID: ' . $subscriber_id . ', 이전: ' . $current_status . ', 새로운 상태: ' . $new_status);
+                
+                http_response_code(200);
+                echo json_encode(array(
+                    'success' => true,
+                    'data' => array(
+                        'new_status' => $new_status,
+                        'message' => '구독자 상태가 변경되었습니다',
+                        'subscriber_id' => $subscriber_id
+                    )
+                ));
+            } else {
+                error_log('AINL: 구독자 상태 변경 실패 - ID: ' . $subscriber_id . ', DB 오류: ' . $wpdb->last_error);
+                http_response_code(500);
+                echo json_encode(array('success' => false, 'data' => '데이터베이스 업데이트 실패: ' . $wpdb->last_error));
+            }
+            
+        } catch (Exception $e) {
+            error_log('AINL: 구독자 상태 변경 예외 - ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(array('success' => false, 'data' => '서버 오류: ' . $e->getMessage()));
+        }
+        
+        wp_die();
+    }
+    
+    /**
+     * AJAX: 구독자 삭제
+     */
+    public function ajax_delete_subscriber() {
+        // 헤더 설정
+        header('Content-Type: application/json');
+        
+        // nonce 검증
+        if (!isset($_POST['_ajax_nonce']) || !wp_verify_nonce($_POST['_ajax_nonce'], 'delete_subscriber')) {
+            http_response_code(403);
+            echo json_encode(array('success' => false, 'data' => '보안 검증 실패'));
+            wp_die();
+        }
+        
+        // 권한 확인
+        if (!current_user_can('manage_options')) {
+            http_response_code(403);
+            echo json_encode(array('success' => false, 'data' => '권한 없음'));
+            wp_die();
+        }
+        
+        $subscriber_id = intval($_POST['subscriber_id']);
+        
+        // 입력값 검증
+        if ($subscriber_id <= 0) {
+            http_response_code(400);
+            echo json_encode(array('success' => false, 'data' => '잘못된 구독자 ID'));
+            wp_die();
+        }
+        
+        global $wpdb;
+        $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers';
+        
+        try {
+            // 구독자 존재 확인
+            $subscriber = $wpdb->get_row($wpdb->prepare("SELECT * FROM $subscribers_table WHERE id = %d", $subscriber_id));
+            
+            if (!$subscriber) {
+                http_response_code(404);
+                echo json_encode(array('success' => false, 'data' => '구독자를 찾을 수 없습니다'));
+                wp_die();
+            }
+            
+            // 구독자 삭제
+            $result = $wpdb->delete(
+                $subscribers_table,
+                array('id' => $subscriber_id),
+                array('%d')
+            );
+            
+            if ($result !== false) {
+                // 로그 기록
+                error_log('AINL: 구독자 삭제 성공 - ID: ' . $subscriber_id . ', 이메일: ' . $subscriber->email);
+                
+                http_response_code(200);
+                echo json_encode(array(
+                    'success' => true,
+                    'data' => array(
+                        'message' => '구독자가 삭제되었습니다',
+                        'deleted_email' => $subscriber->email,
+                        'subscriber_id' => $subscriber_id
+                    )
+                ));
+            } else {
+                error_log('AINL: 구독자 삭제 실패 - ID: ' . $subscriber_id . ', DB 오류: ' . $wpdb->last_error);
+                http_response_code(500);
+                echo json_encode(array('success' => false, 'data' => '데이터베이스 삭제 실패: ' . $wpdb->last_error));
+            }
+            
+        } catch (Exception $e) {
+            error_log('AINL: 구독자 삭제 예외 - ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(array('success' => false, 'data' => '서버 오류: ' . $e->getMessage()));
+        }
+        
+        wp_die();
     }
 }
 
