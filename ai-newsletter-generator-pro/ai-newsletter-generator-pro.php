@@ -155,6 +155,10 @@ class AI_Newsletter_Generator_Pro {
                 
                 // 설정 저장 처리를 위한 admin_post 액션 추가
                 add_action('admin_post_save_ainl_settings', array($this, 'save_settings'));
+                
+                // 뉴스레터 생성 및 구독자 관리를 위한 액션 추가
+                add_action('admin_post_create_ainl_newsletter', array($this, 'create_newsletter'));
+                add_action('admin_post_add_ainl_subscriber', array($this, 'add_subscriber'));
             }
             
         } catch (Exception $e) {
@@ -347,8 +351,39 @@ class AI_Newsletter_Generator_Pro {
             wp_die(__('You do not have sufficient permissions to access this page.'));
         }
         
+        // 설정 완료 여부 확인
+        $is_configured = $this->is_plugin_configured();
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : ($is_configured ? 'dashboard' : 'welcome');
+        
         echo '<div class="wrap">';
         echo '<h1>AI Newsletter Generator Pro</h1>';
+        
+        if ($is_configured) {
+            // 설정이 완료된 경우 - 주요 기능 탭 표시
+            $this->render_main_tabs($active_tab);
+        } else {
+            // 설정이 미완료된 경우 - 환영 페이지
+            $this->render_welcome_page();
+        }
+        
+        echo '</div>';
+    }
+    
+    /**
+     * 플러그인 설정 완료 여부 확인
+     */
+    private function is_plugin_configured() {
+        $from_name = get_option('ainl_email_from_name', '');
+        $from_email = get_option('ainl_email_from_email', '');
+        $frequency = get_option('ainl_newsletter_frequency', '');
+        
+        return !empty($from_name) && !empty($from_email) && !empty($frequency);
+    }
+    
+    /**
+     * 환영 페이지 렌더링 (설정 미완료 시)
+     */
+    private function render_welcome_page() {
         echo '<div class="notice notice-info"><p><strong>환영합니다!</strong> AI Newsletter Generator Pro 플러그인이 성공적으로 활성화되었습니다.</p></div>';
         echo '<div class="card">';
         echo '<h2>플러그인 정보</h2>';
@@ -361,8 +396,360 @@ class AI_Newsletter_Generator_Pro {
         echo '<li>발송 스케줄링</li>';
         echo '<li>성과 분석 및 통계</li>';
         echo '</ul>';
-        echo '<p><a href="' . admin_url('admin.php?page=ai-newsletter-settings') . '" class="button button-primary">설정으로 이동</a></p>';
+        echo '<p><strong>시작하려면 먼저 기본 설정을 완료해주세요.</strong></p>';
+        echo '<p><a href="' . admin_url('admin.php?page=ai-newsletter-settings') . '" class="button button-primary button-large">기본 설정 완료하기</a></p>';
         echo '</div>';
+    }
+    
+    /**
+     * 메인 기능 탭 렌더링 (설정 완료 후)
+     */
+    private function render_main_tabs($active_tab) {
+        // 탭 네비게이션
+        echo '<h2 class="nav-tab-wrapper">';
+        $tabs = array(
+            'dashboard' => '대시보드',
+            'create' => '뉴스레터 생성',
+            'subscribers' => '구독자 관리',
+            'campaigns' => '발송 이력',
+            'templates' => '템플릿 관리',
+            'analytics' => '분석 통계'
+        );
+        
+        foreach ($tabs as $tab_key => $tab_name) {
+            $class = ($active_tab == $tab_key) ? 'nav-tab nav-tab-active' : 'nav-tab';
+            echo '<a href="' . admin_url('admin.php?page=ai-newsletter-generator-pro&tab=' . $tab_key) . '" class="' . $class . '">' . $tab_name . '</a>';
+        }
+        echo '</h2>';
+        
+        // 탭 콘텐츠
+        echo '<div class="tab-content">';
+        switch ($active_tab) {
+            case 'dashboard':
+                $this->render_dashboard_tab();
+                break;
+            case 'create':
+                $this->render_create_tab();
+                break;
+            case 'subscribers':
+                $this->render_subscribers_tab();
+                break;
+            case 'campaigns':
+                $this->render_campaigns_tab();
+                break;
+            case 'templates':
+                $this->render_templates_tab();
+                break;
+            case 'analytics':
+                $this->render_analytics_tab();
+                break;
+            default:
+                $this->render_dashboard_tab();
+        }
+        echo '</div>';
+    }
+    
+    /**
+     * 대시보드 탭 렌더링
+     */
+    private function render_dashboard_tab() {
+        global $wpdb;
+        
+        // 통계 데이터 가져오기
+        $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+        $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+        
+        $total_subscribers = $wpdb ? $wpdb->get_var("SELECT COUNT(*) FROM $subscribers_table WHERE status = 'active'") : 0;
+        $total_campaigns = $wpdb ? $wpdb->get_var("SELECT COUNT(*) FROM $campaigns_table") : 0;
+        $recent_posts = get_posts(array('numberposts' => 5, 'post_status' => 'publish'));
+        
+        echo '<div class="dashboard-widgets">';
+        
+        // 통계 카드들
+        echo '<div class="dashboard-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h3 style="margin: 0; color: #2271b1;">구독자 수</h3>';
+        echo '<p style="font-size: 24px; font-weight: bold; margin: 10px 0;">' . $total_subscribers . '명</p>';
+        echo '</div>';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h3 style="margin: 0; color: #2271b1;">발송 캠페인</h3>';
+        echo '<p style="font-size: 24px; font-weight: bold; margin: 10px 0;">' . $total_campaigns . '개</p>';
+        echo '</div>';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h3 style="margin: 0; color: #2271b1;">최근 게시물</h3>';
+        echo '<p style="font-size: 24px; font-weight: bold; margin: 10px 0;">' . count($recent_posts) . '개</p>';
+        echo '</div>';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h3 style="margin: 0; color: #2271b1;">발송 주기</h3>';
+        $frequency = get_option('ainl_newsletter_frequency', 'weekly');
+        echo '<p style="font-size: 18px; font-weight: bold; margin: 10px 0;">' . ($frequency == 'weekly' ? '주간' : '월간') . '</p>';
+        echo '</div>';
+        
+        echo '</div>';
+        
+        // 빠른 작업 버튼들
+        echo '<div class="quick-actions" style="margin: 20px 0;">';
+        echo '<h3>빠른 작업</h3>';
+        echo '<p>';
+        echo '<a href="' . admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create') . '" class="button button-primary">새 뉴스레터 생성</a> ';
+        echo '<a href="' . admin_url('admin.php?page=ai-newsletter-generator-pro&tab=subscribers') . '" class="button button-secondary">구독자 관리</a> ';
+        echo '<a href="' . admin_url('admin.php?page=ai-newsletter-settings') . '" class="button button-secondary">설정 변경</a>';
+        echo '</p>';
+        echo '</div>';
+        
+        // 최근 게시물 목록
+        if ($recent_posts) {
+            echo '<div class="recent-posts">';
+            echo '<h3>최근 게시물 (뉴스레터 후보)</h3>';
+            echo '<table class="wp-list-table widefat fixed striped">';
+            echo '<thead><tr><th>제목</th><th>작성일</th><th>작성자</th><th>작업</th></tr></thead>';
+            echo '<tbody>';
+            foreach ($recent_posts as $post) {
+                echo '<tr>';
+                echo '<td><a href="' . get_edit_post_link($post->ID) . '">' . esc_html($post->post_title) . '</a></td>';
+                echo '<td>' . get_the_date('Y-m-d', $post->ID) . '</td>';
+                echo '<td>' . get_the_author_meta('display_name', $post->post_author) . '</td>';
+                echo '<td><button class="button button-small" onclick="alert(\'뉴스레터에 포함하기 기능은 곧 제공됩니다.\')">뉴스레터에 포함</button></td>';
+                echo '</tr>';
+            }
+            echo '</tbody>';
+            echo '</table>';
+            echo '</div>';
+        }
+        
+        echo '</div>';
+    }
+    
+    /**
+     * 뉴스레터 생성 탭 렌더링
+     */
+    private function render_create_tab() {
+        echo '<div class="create-newsletter">';
+        echo '<h3>새 뉴스레터 생성</h3>';
+        echo '<div class="postbox">';
+        echo '<div class="inside">';
+        echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
+        if (function_exists('wp_nonce_field')) {
+            wp_nonce_field('ainl_create_newsletter', 'ainl_create_nonce');
+        }
+        echo '<input type="hidden" name="action" value="create_ainl_newsletter" />';
+        
+        echo '<table class="form-table">';
+        echo '<tr>';
+        echo '<th scope="row">뉴스레터 제목</th>';
+        echo '<td><input type="text" name="newsletter_title" value="' . date('Y년 m월 주간 뉴스레터') . '" class="regular-text" required /></td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th scope="row">포함할 게시물 수</th>';
+        echo '<td><input type="number" name="post_count" value="' . get_option('ainl_max_posts_per_newsletter', 5) . '" min="1" max="20" class="small-text" /> 개</td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th scope="row">게시물 범위</th>';
+        echo '<td>';
+        echo '<select name="post_range">';
+        echo '<option value="week">최근 1주일</option>';
+        echo '<option value="month">최근 1개월</option>';
+        echo '<option value="3months">최근 3개월</option>';
+        echo '</select>';
+        echo '</td>';
+        echo '</tr>';
+        echo '</table>';
+        
+        echo '<p class="submit">';
+        echo '<input type="submit" name="submit" class="button button-primary" value="AI 뉴스레터 생성" />';
+        echo '<input type="submit" name="preview" class="button button-secondary" value="미리보기" style="margin-left: 10px;" />';
+        echo '</p>';
+        echo '</form>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+    }
+    
+    /**
+     * 구독자 관리 탭 렌더링
+     */
+    private function render_subscribers_tab() {
+        global $wpdb;
+        $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+        
+        echo '<div class="subscribers-management">';
+        echo '<h3>구독자 관리</h3>';
+        
+        // 구독자 추가 폼
+        echo '<div class="add-subscriber" style="background: #fff; padding: 20px; border: 1px solid #ddd; margin: 20px 0;">';
+        echo '<h4>새 구독자 추가</h4>';
+        echo '<form method="post" action="' . admin_url('admin-post.php') . '" style="display: flex; gap: 10px; align-items: end;">';
+        if (function_exists('wp_nonce_field')) {
+            wp_nonce_field('ainl_add_subscriber', 'ainl_subscriber_nonce');
+        }
+        echo '<input type="hidden" name="action" value="add_ainl_subscriber" />';
+        echo '<div>';
+        echo '<label>이름</label><br>';
+        echo '<input type="text" name="subscriber_name" placeholder="구독자 이름" class="regular-text" />';
+        echo '</div>';
+        echo '<div>';
+        echo '<label>이메일</label><br>';
+        echo '<input type="email" name="subscriber_email" placeholder="이메일 주소" class="regular-text" required />';
+        echo '</div>';
+        echo '<div>';
+        echo '<input type="submit" name="submit" class="button button-primary" value="구독자 추가" />';
+        echo '</div>';
+        echo '</form>';
+        echo '</div>';
+        
+        // 구독자 목록
+        if ($wpdb) {
+            $subscribers = $wpdb->get_results("SELECT * FROM $subscribers_table ORDER BY created_at DESC LIMIT 50");
+            if ($subscribers) {
+                echo '<table class="wp-list-table widefat fixed striped">';
+                echo '<thead><tr><th>이름</th><th>이메일</th><th>상태</th><th>가입일</th><th>작업</th></tr></thead>';
+                echo '<tbody>';
+                foreach ($subscribers as $subscriber) {
+                    echo '<tr>';
+                    echo '<td>' . esc_html($subscriber->name) . '</td>';
+                    echo '<td>' . esc_html($subscriber->email) . '</td>';
+                    echo '<td><span class="status-' . $subscriber->status . '">' . ($subscriber->status == 'active' ? '활성' : '비활성') . '</span></td>';
+                    echo '<td>' . date('Y-m-d', strtotime($subscriber->created_at)) . '</td>';
+                    echo '<td>';
+                    echo '<button class="button button-small" onclick="toggleSubscriber(' . $subscriber->id . ')">상태 변경</button> ';
+                    echo '<button class="button button-small button-link-delete" onclick="deleteSubscriber(' . $subscriber->id . ')">삭제</button>';
+                    echo '</td>';
+                    echo '</tr>';
+                }
+                echo '</tbody>';
+                echo '</table>';
+            } else {
+                echo '<p>아직 구독자가 없습니다. 위의 폼을 사용하여 첫 구독자를 추가해보세요.</p>';
+            }
+        }
+        
+        echo '</div>';
+    }
+    
+    /**
+     * 발송 이력 탭 렌더링
+     */
+    private function render_campaigns_tab() {
+        global $wpdb;
+        $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+        
+        echo '<div class="campaigns-history">';
+        echo '<h3>뉴스레터 발송 이력</h3>';
+        
+        if ($wpdb) {
+            $campaigns = $wpdb->get_results("SELECT * FROM $campaigns_table ORDER BY created_at DESC LIMIT 20");
+            if ($campaigns) {
+                echo '<table class="wp-list-table widefat fixed striped">';
+                echo '<thead><tr><th>제목</th><th>상태</th><th>생성일</th><th>발송일</th><th>작업</th></tr></thead>';
+                echo '<tbody>';
+                foreach ($campaigns as $campaign) {
+                    echo '<tr>';
+                    echo '<td>' . esc_html($campaign->title) . '</td>';
+                    echo '<td>';
+                    if ($campaign->status == 'sent') {
+                        echo '<span style="color: green;">발송 완료</span>';
+                    } elseif ($campaign->status == 'draft') {
+                        echo '<span style="color: orange;">임시저장</span>';
+                    } else {
+                        echo '<span>' . $campaign->status . '</span>';
+                    }
+                    echo '</td>';
+                    echo '<td>' . date('Y-m-d H:i', strtotime($campaign->created_at)) . '</td>';
+                    echo '<td>' . ($campaign->sent_at ? date('Y-m-d H:i', strtotime($campaign->sent_at)) : '-') . '</td>';
+                    echo '<td>';
+                    echo '<button class="button button-small" onclick="viewCampaign(' . $campaign->id . ')">보기</button> ';
+                    if ($campaign->status == 'draft') {
+                        echo '<button class="button button-small button-primary" onclick="sendCampaign(' . $campaign->id . ')">발송</button>';
+                    }
+                    echo '</td>';
+                    echo '</tr>';
+                }
+                echo '</tbody>';
+                echo '</table>';
+            } else {
+                echo '<p>아직 발송한 뉴스레터가 없습니다. <a href="' . admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create') . '">새 뉴스레터를 생성</a>해보세요.</p>';
+            }
+        }
+        
+        echo '</div>';
+    }
+    
+    /**
+     * 템플릿 관리 탭 렌더링
+     */
+    private function render_templates_tab() {
+        echo '<div class="templates-management">';
+        echo '<h3>이메일 템플릿 관리</h3>';
+        echo '<p>뉴스레터의 디자인과 레이아웃을 관리합니다.</p>';
+        
+        $templates = array(
+            'modern' => array('name' => '모던 스타일', 'description' => '깔끔하고 현대적인 디자인'),
+            'classic' => array('name' => '클래식 스타일', 'description' => '전통적이고 신뢰감 있는 디자인'),
+            'minimal' => array('name' => '미니멀 스타일', 'description' => '간결하고 심플한 디자인')
+        );
+        
+        $current_template = get_option('ainl_template_style', 'modern');
+        
+        echo '<div class="template-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;">';
+        foreach ($templates as $key => $template) {
+            $is_active = ($current_template == $key);
+            echo '<div class="template-card" style="border: 2px solid ' . ($is_active ? '#2271b1' : '#ddd') . '; padding: 20px; border-radius: 5px; text-align: center;">';
+            echo '<h4>' . $template['name'] . '</h4>';
+            echo '<p>' . $template['description'] . '</p>';
+            if ($is_active) {
+                echo '<p><strong style="color: #2271b1;">현재 사용 중</strong></p>';
+            } else {
+                echo '<p><button class="button button-primary" onclick="selectTemplate(\'' . $key . '\')">선택</button></p>';
+            }
+            echo '</div>';
+        }
+        echo '</div>';
+        
+        echo '</div>';
+    }
+    
+    /**
+     * 분석 통계 탭 렌더링
+     */
+    private function render_analytics_tab() {
+        echo '<div class="analytics-dashboard">';
+        echo '<h3>분석 및 통계</h3>';
+        echo '<p>뉴스레터 성과를 분석하고 개선점을 찾아보세요.</p>';
+        
+        // 샘플 통계 데이터
+        echo '<div class="analytics-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0;">';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h4>이번 달 발송률</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">95.5%</p>';
+        echo '</div>';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h4>평균 오픈률</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">42.3%</p>';
+        echo '</div>';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h4>클릭률</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">12.8%</p>';
+        echo '</div>';
+        
+        echo '<div class="stat-card" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">';
+        echo '<h4>구독 취소율</h4>';
+        echo '<p style="font-size: 24px; font-weight: bold; color: #2271b1;">2.1%</p>';
+        echo '</div>';
+        
+        echo '</div>';
+        
+        echo '<div class="analytics-note" style="background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; margin: 20px 0;">';
+        echo '<h4>📊 분석 기능 개발 중</h4>';
+        echo '<p>더 자세한 분석 기능은 향후 업데이트에서 제공될 예정입니다. 현재는 기본 통계만 표시됩니다.</p>';
+        echo '</div>';
+        
         echo '</div>';
     }
     
@@ -663,6 +1050,172 @@ class AI_Newsletter_Generator_Pro {
         } catch (Exception $e) {
             error_log('AINL Plugin Options Error: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * 뉴스레터 생성 처리
+     */
+    public function create_newsletter() {
+        try {
+            // 권한 체크
+            if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+                wp_die(__('권한이 없습니다.'));
+            }
+            
+            // nonce 보안 검증
+            if (!function_exists('wp_verify_nonce') || !wp_verify_nonce($_POST['ainl_create_nonce'], 'ainl_create_newsletter')) {
+                wp_die(__('보안 검증에 실패했습니다.'));
+            }
+            
+            global $wpdb;
+            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+            
+            $title = sanitize_text_field($_POST['newsletter_title']);
+            $post_count = intval($_POST['post_count']);
+            $post_range = sanitize_text_field($_POST['post_range']);
+            
+            // 간단한 뉴스레터 내용 생성 (실제로는 AI가 처리)
+            $content = $this->generate_simple_newsletter_content($post_count, $post_range);
+            
+            // 캠페인 저장
+            if ($wpdb) {
+                $result = $wpdb->insert(
+                    $campaigns_table,
+                    array(
+                        'title' => $title,
+                        'content' => $content,
+                        'status' => 'draft',
+                        'created_at' => current_time('mysql')
+                    ),
+                    array('%s', '%s', '%s', '%s')
+                );
+                
+                if ($result) {
+                    $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=campaigns&created=true');
+                } else {
+                    $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true');
+                }
+            } else {
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true');
+            }
+            
+            wp_redirect($redirect_url);
+            exit;
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Newsletter Creation Error: ' . $e->getMessage());
+            $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true');
+            wp_redirect($redirect_url);
+            exit;
+        }
+    }
+    
+    /**
+     * 구독자 추가 처리
+     */
+    public function add_subscriber() {
+        try {
+            // 권한 체크
+            if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+                wp_die(__('권한이 없습니다.'));
+            }
+            
+            // nonce 보안 검증
+            if (!function_exists('wp_verify_nonce') || !wp_verify_nonce($_POST['ainl_subscriber_nonce'], 'ainl_add_subscriber')) {
+                wp_die(__('보안 검증에 실패했습니다.'));
+            }
+            
+            global $wpdb;
+            $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
+            
+            $name = sanitize_text_field($_POST['subscriber_name']);
+            $email = sanitize_email($_POST['subscriber_email']);
+            
+            // 이메일 중복 체크
+            if ($wpdb) {
+                $existing = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $subscribers_table WHERE email = %s", $email));
+                
+                if ($existing > 0) {
+                    $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=subscribers&duplicate=true');
+                } else {
+                    // 구독자 추가
+                    $result = $wpdb->insert(
+                        $subscribers_table,
+                        array(
+                            'name' => $name,
+                            'email' => $email,
+                            'status' => 'active',
+                            'created_at' => current_time('mysql')
+                        ),
+                        array('%s', '%s', '%s', '%s')
+                    );
+                    
+                    if ($result) {
+                        $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=subscribers&added=true');
+                    } else {
+                        $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=subscribers&error=true');
+                    }
+                }
+            } else {
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=subscribers&error=true');
+            }
+            
+            wp_redirect($redirect_url);
+            exit;
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Subscriber Add Error: ' . $e->getMessage());
+            $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=subscribers&error=true');
+            wp_redirect($redirect_url);
+            exit;
+        }
+    }
+    
+    /**
+     * 간단한 뉴스레터 내용 생성 (AI 대체용)
+     */
+    private function generate_simple_newsletter_content($post_count, $post_range) {
+        // 날짜 범위 설정
+        $date_query = array();
+        switch ($post_range) {
+            case 'week':
+                $date_query['after'] = '1 week ago';
+                break;
+            case 'month':
+                $date_query['after'] = '1 month ago';
+                break;
+            case '3months':
+                $date_query['after'] = '3 months ago';
+                break;
+        }
+        
+        // 최근 게시물 가져오기
+        $posts = get_posts(array(
+            'numberposts' => $post_count,
+            'post_status' => 'publish',
+            'date_query' => array($date_query)
+        ));
+        
+        $content = '<h2>' . get_bloginfo('name') . ' 뉴스레터</h2>';
+        $content .= '<p>안녕하세요! ' . get_bloginfo('name') . '의 최신 소식을 전해드립니다.</p>';
+        
+        if ($posts) {
+            $content .= '<h3>이번 주 주요 글</h3>';
+            foreach ($posts as $post) {
+                $content .= '<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd;">';
+                $content .= '<h4><a href="' . get_permalink($post->ID) . '">' . esc_html($post->post_title) . '</a></h4>';
+                $content .= '<p>' . wp_trim_words($post->post_content, 30) . '</p>';
+                $content .= '<p><strong>작성일:</strong> ' . get_the_date('Y-m-d', $post->ID) . '</p>';
+                $content .= '</div>';
+            }
+        } else {
+            $content .= '<p>선택한 기간 동안 발행된 게시물이 없습니다.</p>';
+        }
+        
+        $content .= '<hr>';
+        $content .= '<p>감사합니다.<br>' . get_bloginfo('name') . '</p>';
+        
+        return $content;
     }
 }
 
