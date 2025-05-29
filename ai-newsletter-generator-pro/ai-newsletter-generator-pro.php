@@ -165,6 +165,10 @@ class AI_Newsletter_Generator_Pro {
                 // AJAX 액션 추가 (뉴스레터 보기/발송)
                 add_action('wp_ajax_get_newsletter_content', array($this, 'ajax_get_newsletter_content'));
                 add_action('wp_ajax_send_newsletter', array($this, 'ajax_send_newsletter'));
+                
+                // 구독 취소 액션 추가 (로그인하지 않은 사용자도 접근 가능)
+                add_action('wp_ajax_nopriv_unsubscribe', array($this, 'handle_unsubscribe'));
+                add_action('wp_ajax_unsubscribe', array($this, 'handle_unsubscribe'));
             }
             
         } catch (Exception $e) {
@@ -1493,6 +1497,166 @@ class AI_Newsletter_Generator_Pro {
         </script>';
         
         echo '</div>';
+        
+        // SMTP 및 이메일 발송 설정 안내
+        echo '<div class="card" style="margin-top: 20px;">';
+        echo '<h2>📧 SMTP 및 이메일 발송 설정</h2>';
+        echo '<p><strong>실제 이메일 발송을 위해서는 SMTP 설정이 필요합니다.</strong></p>';
+        
+        // SMTP 상태 체크
+        $smtp_configured = false;
+        $smtp_plugin_active = false;
+        
+        // 일반적인 SMTP 플러그인들 체크
+        if (is_plugin_active('wp-mail-smtp/wp_mail_smtp.php')) {
+            $smtp_plugin_active = true;
+            $smtp_plugin_name = 'WP Mail SMTP';
+        } elseif (is_plugin_active('easy-wp-smtp/easy-wp-smtp.php')) {
+            $smtp_plugin_active = true;
+            $smtp_plugin_name = 'Easy WP SMTP';
+        } elseif (is_plugin_active('wp-smtp/wp-smtp.php')) {
+            $smtp_plugin_active = true;
+            $smtp_plugin_name = 'WP SMTP';
+        }
+        
+        echo '<div style="padding: 15px; background: ' . ($smtp_plugin_active ? '#f0f8f0' : '#fff3cd') . '; border: 1px solid ' . ($smtp_plugin_active ? '#46b450' : '#ffc107') . '; border-radius: 5px; margin: 15px 0;">';
+        
+        if ($smtp_plugin_active) {
+            echo '<h4 style="color: #46b450;">✅ SMTP 플러그인 감지됨</h4>';
+            echo '<p><strong>' . $smtp_plugin_name . '</strong> 플러그인이 활성화되어 있습니다.</p>';
+            echo '<p>플러그인 설정에서 SMTP 서버 정보를 구성했는지 확인해주세요.</p>';
+        } else {
+            echo '<h4 style="color: #f57c00;">⚠️ SMTP 플러그인 필요</h4>';
+            echo '<p>안정적인 이메일 발송을 위해 SMTP 플러그인 설치를 권장합니다.</p>';
+        }
+        echo '</div>';
+        
+        echo '<h4>권장 SMTP 플러그인</h4>';
+        echo '<ul>';
+        echo '<li><strong>WP Mail SMTP</strong> - 가장 인기 있고 안정적인 SMTP 플러그인</li>';
+        echo '<li><strong>Easy WP SMTP</strong> - 설정이 간단한 SMTP 플러그인</li>';
+        echo '<li><strong>Post SMTP Mailer/Email Log</strong> - 이메일 로그 기능 포함</li>';
+        echo '</ul>';
+        
+        echo '<h4>지원되는 SMTP 서비스</h4>';
+        echo '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0;">';
+        
+        $smtp_services = array(
+            'Gmail SMTP' => array('port' => '587 (TLS)', 'server' => 'smtp.gmail.com'),
+            'Outlook/Hotmail' => array('port' => '587 (TLS)', 'server' => 'smtp-mail.outlook.com'),
+            'Yahoo Mail' => array('port' => '587 (TLS)', 'server' => 'smtp.mail.yahoo.com'),
+            'SendGrid' => array('port' => '587 (TLS)', 'server' => 'smtp.sendgrid.net'),
+            'Mailgun' => array('port' => '587 (TLS)', 'server' => 'smtp.mailgun.org'),
+            'Amazon SES' => array('port' => '587 (TLS)', 'server' => 'email-smtp.region.amazonaws.com')
+        );
+        
+        foreach ($smtp_services as $service => $info) {
+            echo '<div style="padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px;">';
+            echo '<strong>' . $service . '</strong><br>';
+            echo 'Server: ' . $info['server'] . '<br>';
+            echo 'Port: ' . $info['port'];
+            echo '</div>';
+        }
+        echo '</div>';
+        
+        echo '<h4>💡 발송 테스트 권장사항</h4>';
+        echo '<ol>';
+        echo '<li><strong>SMTP 설정 완료 후</strong> 먼저 테스트 이메일을 발송해보세요</li>';
+        echo '<li><strong>발송자 이메일 주소</strong>는 실제 존재하는 주소여야 합니다</li>';
+        echo '<li><strong>SPF, DKIM 설정</strong>을 통해 스팸 필터링을 방지하세요</li>';
+        echo '<li><strong>대량 발송 시</strong> 서비스 제한량을 확인하세요</li>';
+        echo '</ol>';
+        
+        echo '<div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0;">';
+        echo '<h4 style="margin-top: 0;">🚀 발송 기능 업그레이드 완료!</h4>';
+        echo '<p><strong>새로운 기능들:</strong></p>';
+        echo '<ul>';
+        echo '<li>✅ 실제 이메일 발송 (wp_mail 사용)</li>';
+        echo '<li>✅ 개인화된 인사말 (구독자 이름 포함)</li>';
+        echo '<li>✅ 구독 취소 링크 자동 추가</li>';
+        echo '<li>✅ 발송 성공률 모니터링</li>';
+        echo '<li>✅ 실패한 이메일 주소 추적</li>';
+        echo '<li>✅ 대량 발송 시 서버 부하 방지</li>';
+        echo '</ul>';
+        echo '</div>';
+        
+        echo '</div>';
+        
+        echo '<p class="submit"><input type="submit" name="submit" class="button button-primary" value="설정 저장" /></p>';
+        echo '</form>';
+        
+        // JavaScript 코드 (기존 코드 유지)
+        echo '<script>
+        // API 키 표시/숨김 토글 함수
+        function toggleApiKeyVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = document.getElementById(fieldId + "_icon");
+            
+            if (field.type === "password") {
+                field.type = "text";
+                icon.className = "dashicons dashicons-hidden";
+                icon.style.color = "#000000";
+                icon.style.fontSize = "16px";
+                icon.style.lineHeight = "1";
+            } else {
+                field.type = "password";
+                icon.className = "dashicons dashicons-visibility";
+                icon.style.color = "#000000";
+                icon.style.fontSize = "16px";
+                icon.style.lineHeight = "1";
+            }
+        }
+        
+        // AI 제공업체 변경 시 모델 옵션 필터링
+        function updateModelOptions() {
+            const provider = document.getElementById("ainl_ai_provider").value;
+            const modelSelect = document.getElementById("ainl_ai_model");
+            const allGroups = modelSelect.querySelectorAll("optgroup");
+            
+            // 모든 그룹 숨김
+            allGroups.forEach(group => {
+                group.style.display = "none";
+            });
+            
+            // 선택된 제공업체의 그룹만 표시
+            let targetGroupClass = "";
+            switch(provider) {
+                case "openai":
+                    targetGroupClass = "openai-models";
+                    break;
+                case "claude":
+                    targetGroupClass = "claude-models";
+                    break;
+                case "groq":
+                    targetGroupClass = "groq-models";
+                    break;
+            }
+            
+            if (targetGroupClass) {
+                const targetGroup = modelSelect.querySelector("." + targetGroupClass);
+                if (targetGroup) {
+                    targetGroup.style.display = "block";
+                    // 첫 번째 옵션 선택
+                    const firstOption = targetGroup.querySelector("option");
+                    if (firstOption) {
+                        modelSelect.value = firstOption.value;
+                    }
+                }
+            }
+        }
+        
+        // 페이지 로드 시 이벤트 리스너 등록
+        document.addEventListener("DOMContentLoaded", function() {
+            const providerSelect = document.getElementById("ainl_ai_provider");
+            if (providerSelect) {
+                providerSelect.addEventListener("change", updateModelOptions);
+                // 초기 로드 시 현재 선택된 제공업체에 맞는 모델 그룹 표시
+                updateModelOptions();
+            }
+        });
+        </script>';
+        
+        echo '</div>';
     }
     
     /**
@@ -2124,6 +2288,11 @@ class AI_Newsletter_Generator_Pro {
             wp_die(json_encode(array('success' => false, 'data' => '뉴스레터를 찾을 수 없습니다')));
         }
         
+        // 이미 발송된 캠페인인지 확인
+        if ($campaign->status === 'sent') {
+            wp_die(json_encode(array('success' => false, 'data' => '이미 발송된 뉴스레터입니다')));
+        }
+        
         // 활성 구독자 가져오기
         $subscribers = $wpdb->get_results("SELECT * FROM $subscribers_table WHERE status = 'active'");
         
@@ -2131,39 +2300,112 @@ class AI_Newsletter_Generator_Pro {
             wp_die(json_encode(array('success' => false, 'data' => '활성 구독자가 없습니다')));
         }
         
-        // 이메일 발송 (실제 발송 대신 시뮬레이션)
+        // SMTP/메일 기능 사전 체크
+        if (!function_exists('wp_mail')) {
+            wp_die(json_encode(array('success' => false, 'data' => 'WordPress 메일 함수를 사용할 수 없습니다')));
+        }
+        
+        // 발송자 정보 확인
+        $from_name = get_option('ainl_email_from_name', get_bloginfo('name'));
+        $from_email = get_option('ainl_email_from_email', get_bloginfo('admin_email'));
+        
+        if (empty($from_name) || empty($from_email) || !is_email($from_email)) {
+            wp_die(json_encode(array('success' => false, 'data' => '발송자 정보가 올바르지 않습니다. 설정 페이지에서 확인해주세요')));
+        }
+        
+        // 실제 이메일 발송
         $sent_count = 0;
         $failed_count = 0;
+        $failed_emails = array();
+        
+        // 이메일 헤더 설정
+        $headers = array(
+            'Content-Type: text/html; charset=UTF-8',
+            'From: ' . $from_name . ' <' . $from_email . '>'
+        );
         
         foreach ($subscribers as $subscriber) {
-            // 실제 환경에서는 wp_mail() 함수를 사용합니다
-            // 현재는 시뮬레이션만 수행
-            if (function_exists('wp_mail')) {
-                $subject = $campaign->title;
-                $message = $campaign->content;
-                $headers = array('Content-Type: text/html; charset=UTF-8');
+            try {
+                // 개인화된 내용 생성 (구독자 이름이 있으면 포함)
+                $personalized_content = $campaign->content;
+                if (!empty($subscriber->name)) {
+                    $greeting = '<p>안녕하세요, ' . esc_html($subscriber->name) . '님!</p>';
+                    $personalized_content = $greeting . $personalized_content;
+                }
                 
-                // 실제 이메일 발송 (주석 처리 - 테스트 환경에서는 실제 발송하지 않음)
-                // $result = wp_mail($subscriber->email, $subject, $message, $headers);
+                // 구독 취소 링크 추가
+                $unsubscribe_link = add_query_arg(array(
+                    'action' => 'unsubscribe',
+                    'email' => urlencode($subscriber->email),
+                    'token' => wp_hash($subscriber->email . 'unsubscribe')
+                ), home_url());
                 
-                // 시뮬레이션: 90% 성공률
-                $result = (rand(1, 10) <= 9);
+                $personalized_content .= '<hr><p style="font-size: 12px; color: #666;">';
+                $personalized_content .= '<a href="' . $unsubscribe_link . '">구독 취소</a> | ';
+                $personalized_content .= '이 이메일은 ' . get_bloginfo('name') . '에서 발송되었습니다.';
+                $personalized_content .= '</p>';
+                
+                // 실제 이메일 발송
+                $result = wp_mail(
+                    $subscriber->email,
+                    $campaign->title,
+                    $personalized_content,
+                    $headers
+                );
                 
                 if ($result) {
                     $sent_count++;
+                    // 발송 성공 시 로그 기록
+                    error_log('AINL: 이메일 발송 성공 - ' . $subscriber->email);
                 } else {
                     $failed_count++;
+                    $failed_emails[] = $subscriber->email;
+                    // 발송 실패 시 로그 기록
+                    error_log('AINL: 이메일 발송 실패 - ' . $subscriber->email);
                 }
-            } else {
+                
+                // 서버 부하 방지를 위한 지연 (대량 발송 시)
+                if (count($subscribers) > 10) {
+                    usleep(100000); // 0.1초 대기
+                }
+                
+            } catch (Exception $e) {
                 $failed_count++;
+                $failed_emails[] = $subscriber->email;
+                error_log('AINL: 이메일 발송 중 예외 발생 - ' . $subscriber->email . ': ' . $e->getMessage());
             }
         }
         
-        // 캠페인 상태 업데이트
+        // 발송 결과 평가
+        $total_subscribers = count($subscribers);
+        $success_rate = ($sent_count / $total_subscribers) * 100;
+        
+        // 캠페인 상태 업데이트 (50% 이상 성공 시에만 'sent'로 변경)
+        if ($success_rate >= 50) {
+            $new_status = 'sent';
+            $message = "발송 완료! 성공: {$sent_count}명, 실패: {$failed_count}명 (성공률: " . round($success_rate, 1) . "%)";
+            
+            if ($failed_count > 0) {
+                $message .= "\n실패한 이메일: " . implode(', ', array_slice($failed_emails, 0, 5));
+                if (count($failed_emails) > 5) {
+                    $message .= " 외 " . (count($failed_emails) - 5) . "개";
+                }
+            }
+        } else {
+            $new_status = 'failed';
+            $message = "발송 실패! 성공: {$sent_count}명, 실패: {$failed_count}명 (성공률: " . round($success_rate, 1) . "%)\n";
+            $message .= "50% 미만의 성공률로 인해 발송이 실패로 처리되었습니다.";
+            
+            if (!empty($failed_emails)) {
+                $message .= "\n주요 실패 이메일: " . implode(', ', array_slice($failed_emails, 0, 3));
+            }
+        }
+        
+        // 데이터베이스 업데이트
         $update_result = $wpdb->update(
             $campaigns_table,
             array(
-                'status' => 'sent',
+                'status' => $new_status,
                 'sent_at' => current_time('mysql')
             ),
             array('id' => $campaign_id),
@@ -2172,11 +2414,92 @@ class AI_Newsletter_Generator_Pro {
         );
         
         if ($update_result !== false) {
-            $message = "발송 완료! 성공: {$sent_count}명, 실패: {$failed_count}명";
-            wp_die(json_encode(array('success' => true, 'data' => $message)));
+            // 성공/실패에 따른 응답
+            if ($success_rate >= 50) {
+                wp_die(json_encode(array('success' => true, 'data' => $message)));
+            } else {
+                wp_die(json_encode(array('success' => false, 'data' => $message)));
+            }
         } else {
-            wp_die(json_encode(array('success' => false, 'data' => '발송 상태 업데이트 실패')));
+            wp_die(json_encode(array('success' => false, 'data' => '발송 상태 업데이트 실패: ' . $wpdb->last_error)));
         }
+    }
+    
+    /**
+     * 구독 취소 처리
+     */
+    public function handle_unsubscribe() {
+        try {
+            $email = isset($_GET['email']) ? urldecode($_GET['email']) : '';
+            $token = isset($_GET['token']) ? $_GET['token'] : '';
+            
+            // 이메일 형식 검증
+            if (empty($email) || !is_email($email)) {
+                wp_die('유효하지 않은 이메일 주소입니다.');
+            }
+            
+            // 토큰 검증
+            $expected_token = wp_hash($email . 'unsubscribe');
+            if (empty($token) || $token !== $expected_token) {
+                wp_die('유효하지 않은 구독 취소 링크입니다.');
+            }
+            
+            global $wpdb;
+            $subscribers_table = $wpdb->prefix . 'ainl_pro_subscribers';
+            
+            // 구독자 존재 확인
+            $subscriber = $wpdb->get_row($wpdb->prepare("SELECT * FROM $subscribers_table WHERE email = %s", $email));
+            
+            if (!$subscriber) {
+                wp_die('구독자를 찾을 수 없습니다.');
+            }
+            
+            if ($subscriber->status === 'inactive') {
+                // 이미 구독 취소된 경우
+                echo '<div style="max-width: 600px; margin: 50px auto; padding: 30px; border: 1px solid #ddd; border-radius: 8px; text-align: center; font-family: Arial, sans-serif;">';
+                echo '<h2>구독 취소 완료</h2>';
+                echo '<p>이미 구독이 취소된 이메일 주소입니다.</p>';
+                echo '<p style="color: #666;">이메일: ' . esc_html($email) . '</p>';
+                echo '<p><a href="' . home_url() . '" style="color: #0073aa;">홈페이지로 돌아가기</a></p>';
+                echo '</div>';
+            } else {
+                // 구독 상태를 inactive로 변경
+                $result = $wpdb->update(
+                    $subscribers_table,
+                    array(
+                        'status' => 'inactive',
+                        'updated_at' => current_time('mysql')
+                    ),
+                    array('email' => $email),
+                    array('%s', '%s'),
+                    array('%s')
+                );
+                
+                if ($result !== false) {
+                    // 구독 취소 성공 페이지
+                    echo '<div style="max-width: 600px; margin: 50px auto; padding: 30px; border: 1px solid #ddd; border-radius: 8px; text-align: center; font-family: Arial, sans-serif;">';
+                    echo '<h2>구독 취소 완료</h2>';
+                    echo '<p>뉴스레터 구독이 성공적으로 취소되었습니다.</p>';
+                    echo '<p style="color: #666;">이메일: ' . esc_html($email) . '</p>';
+                    echo '<p>더 이상 뉴스레터를 받지 않습니다.</p>';
+                    echo '<hr>';
+                    echo '<p><small>다시 구독을 원하시면 웹사이트의 구독 양식을 이용해주세요.</small></p>';
+                    echo '<p><a href="' . home_url() . '" style="color: #0073aa;">홈페이지로 돌아가기</a></p>';
+                    echo '</div>';
+                    
+                    // 로그 기록
+                    error_log('AINL: 구독 취소 완료 - ' . $email);
+                } else {
+                    wp_die('구독 취소 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+                }
+            }
+            
+        } catch (Exception $e) {
+            error_log('AINL: 구독 취소 오류 - ' . $e->getMessage());
+            wp_die('구독 취소 처리 중 오류가 발생했습니다.');
+        }
+        
+        exit;
     }
 }
 
