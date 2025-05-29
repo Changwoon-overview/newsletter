@@ -757,51 +757,98 @@ class AI_Newsletter_Generator_Pro {
      * 설정 저장 처리
      */
     public function save_settings() {
+        // 권한 검증
+        if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+        
+        // nonce 검증
+        if (!isset($_POST['ainl_settings_nonce']) || !wp_verify_nonce($_POST['ainl_settings_nonce'], 'ainl_save_settings')) {
+            wp_die(__('Security check failed'));
+        }
+        
         try {
-            // 권한 체크
-            if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
-                wp_die(__('권한이 없습니다.'));
+            // 기본 설정 저장
+            if (isset($_POST['ainl_email_from_name'])) {
+                update_option('ainl_email_from_name', sanitize_text_field($_POST['ainl_email_from_name']));
             }
             
-            // nonce 보안 검증
-            if (!function_exists('wp_verify_nonce') || !wp_verify_nonce($_POST['ainl_settings_nonce'], 'ainl_save_settings')) {
-                wp_die(__('보안 검증에 실패했습니다.'));
-            }
-            
-            // 설정값 저장
-            if (function_exists('update_option')) {
-                if (isset($_POST['ainl_email_from_name'])) {
-                    update_option('ainl_email_from_name', sanitize_text_field($_POST['ainl_email_from_name']));
-                }
-                
-                if (isset($_POST['ainl_email_from_email'])) {
-                    update_option('ainl_email_from_email', sanitize_email($_POST['ainl_email_from_email']));
-                }
-                
-                if (isset($_POST['ainl_newsletter_frequency'])) {
-                    $frequency = sanitize_text_field($_POST['ainl_newsletter_frequency']);
-                    if (in_array($frequency, array('weekly', 'monthly'))) {
-                        update_option('ainl_newsletter_frequency', $frequency);
-                    }
-                }
-                
-                if (isset($_POST['ainl_max_posts_per_newsletter'])) {
-                    $max_posts = intval($_POST['ainl_max_posts_per_newsletter']);
-                    if ($max_posts > 0 && $max_posts <= 20) {
-                        update_option('ainl_max_posts_per_newsletter', $max_posts);
-                    }
+            if (isset($_POST['ainl_email_from_email'])) {
+                $email = sanitize_email($_POST['ainl_email_from_email']);
+                if (is_email($email)) {
+                    update_option('ainl_email_from_email', $email);
                 }
             }
             
-            // 성공 메시지와 함께 설정 페이지로 리다이렉트
-            $redirect_url = admin_url('admin.php?page=ai-newsletter-settings&settings-updated=true');
-            wp_redirect($redirect_url);
+            if (isset($_POST['ainl_newsletter_frequency'])) {
+                $frequency = sanitize_text_field($_POST['ainl_newsletter_frequency']);
+                if (in_array($frequency, ['weekly', 'monthly'])) {
+                    update_option('ainl_newsletter_frequency', $frequency);
+                }
+            }
+            
+            if (isset($_POST['ainl_max_posts_per_newsletter'])) {
+                $max_posts = intval($_POST['ainl_max_posts_per_newsletter']);
+                if ($max_posts >= 1 && $max_posts <= 20) {
+                    update_option('ainl_max_posts_per_newsletter', $max_posts);
+                }
+            }
+            
+            // AI 설정 저장
+            if (isset($_POST['ainl_ai_provider'])) {
+                $provider = sanitize_text_field($_POST['ainl_ai_provider']);
+                if (in_array($provider, ['openai', 'claude', 'groq'])) {
+                    update_option('ainl_ai_provider', $provider);
+                }
+            }
+            
+            // API 키들 안전하게 저장 (암호화 권장이지만 기본적으로는 sanitize만 적용)
+            if (isset($_POST['ainl_openai_api_key'])) {
+                $api_key = sanitize_text_field($_POST['ainl_openai_api_key']);
+                update_option('ainl_openai_api_key', $api_key);
+            }
+            
+            if (isset($_POST['ainl_claude_api_key'])) {
+                $api_key = sanitize_text_field($_POST['ainl_claude_api_key']);
+                update_option('ainl_claude_api_key', $api_key);
+            }
+            
+            if (isset($_POST['ainl_groq_api_key'])) {
+                $api_key = sanitize_text_field($_POST['ainl_groq_api_key']);
+                update_option('ainl_groq_api_key', $api_key);
+            }
+            
+            // AI 모델 저장
+            if (isset($_POST['ainl_ai_model'])) {
+                $model = sanitize_text_field($_POST['ainl_ai_model']);
+                // 허용된 모델 목록 검증
+                $allowed_models = [
+                    'gpt-4o', 'gpt-4', 'gpt-3.5-turbo', // OpenAI
+                    'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307', // Claude
+                    'llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'gemma2-9b-it' // Groq
+                ];
+                if (in_array($model, $allowed_models)) {
+                    update_option('ainl_ai_model', $model);
+                }
+            }
+            
+            // AI 생성 옵션들 저장 (체크박스)
+            update_option('ainl_ai_summarize', isset($_POST['ainl_ai_summarize']) ? 1 : 0);
+            update_option('ainl_ai_enhance_titles', isset($_POST['ainl_ai_enhance_titles']) ? 1 : 0);
+            update_option('ainl_ai_add_intro', isset($_POST['ainl_ai_add_intro']) ? 1 : 0);
+            
+            // 성공 시 리다이렉트
+            wp_redirect(admin_url('admin.php?page=ai-newsletter-generator-pro&settings-updated=true'));
             exit;
             
         } catch (Exception $e) {
-            error_log('AINL Plugin Settings Save Error: ' . $e->getMessage());
-            $redirect_url = admin_url('admin.php?page=ai-newsletter-settings&error=true');
-            wp_redirect($redirect_url);
+            // 오류 로깅
+            if (function_exists('error_log')) {
+                error_log('AI Newsletter Generator Pro - Settings Save Error: ' . $e->getMessage());
+            }
+            
+            // 오류 시 리다이렉트
+            wp_redirect(admin_url('admin.php?page=ai-newsletter-generator-pro&error=true'));
             exit;
         }
     }
@@ -824,8 +871,7 @@ class AI_Newsletter_Generator_Pro {
         
         echo '<div class="wrap">';
         echo '<h1>AI Newsletter Settings</h1>';
-        echo '<div class="card">';
-        echo '<h2>기본 설정</h2>';
+        
         echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
         
         // nonce 필드 추가
@@ -834,6 +880,9 @@ class AI_Newsletter_Generator_Pro {
         }
         echo '<input type="hidden" name="action" value="save_ainl_settings" />';
         
+        // 기본 설정 섹션
+        echo '<div class="card">';
+        echo '<h2>기본 설정</h2>';
         echo '<table class="form-table">';
         echo '<tr>';
         echo '<th scope="row">발송자 이름</th>';
@@ -858,9 +907,163 @@ class AI_Newsletter_Generator_Pro {
         echo '<td><input type="number" name="ainl_max_posts_per_newsletter" value="' . esc_attr(get_option('ainl_max_posts_per_newsletter', 5)) . '" min="1" max="20" class="small-text" /> 개</td>';
         echo '</tr>';
         echo '</table>';
+        echo '</div>';
+        
+        // AI 설정 섹션
+        echo '<div class="card" style="margin-top: 20px;">';
+        echo '<h2>🤖 AI 설정</h2>';
+        echo '<p>뉴스레터 자동 생성을 위한 AI 서비스 설정입니다.</p>';
+        echo '<table class="form-table">';
+        
+        // AI 모델 선택
+        echo '<tr>';
+        echo '<th scope="row">AI 모델 선택</th>';
+        echo '<td>';
+        echo '<select name="ainl_ai_provider" id="ainl_ai_provider">';
+        $current_provider = get_option('ainl_ai_provider', 'openai');
+        echo '<option value="openai"' . selected($current_provider, 'openai', false) . '>OpenAI (GPT-4, GPT-3.5)</option>';
+        echo '<option value="claude"' . selected($current_provider, 'claude', false) . '>Anthropic Claude</option>';
+        echo '<option value="groq"' . selected($current_provider, 'groq', false) . '>Groq (Fast LLM Inference)</option>';
+        echo '</select>';
+        echo '<p class="description">사용할 AI 서비스를 선택하세요. Groq는 매우 빠른 추론 속도를 제공합니다.</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // OpenAI API 키
+        echo '<tr class="api-key-row openai-key">';
+        echo '<th scope="row">OpenAI API 키</th>';
+        echo '<td>';
+        echo '<div style="position: relative; display: inline-block; width: 100%;">';
+        echo '<input type="password" name="ainl_openai_api_key" id="openai_api_key" value="' . esc_attr(get_option('ainl_openai_api_key', '')) . '" class="regular-text" placeholder="sk-..." />';
+        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'openai_api_key\')" style="margin-left: 5px;">';
+        echo '<span class="dashicons dashicons-visibility" id="openai_api_key_icon"></span>';
+        echo '</button>';
+        echo '</div>';
+        echo '<p class="description">OpenAI API 키를 입력하세요. <a href="https://platform.openai.com/api-keys" target="_blank">API 키 생성</a></p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // Claude API 키
+        echo '<tr class="api-key-row claude-key">';
+        echo '<th scope="row">Claude API 키</th>';
+        echo '<td>';
+        echo '<div style="position: relative; display: inline-block; width: 100%;">';
+        echo '<input type="password" name="ainl_claude_api_key" id="claude_api_key" value="' . esc_attr(get_option('ainl_claude_api_key', '')) . '" class="regular-text" placeholder="sk-ant-..." />';
+        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'claude_api_key\')" style="margin-left: 5px;">';
+        echo '<span class="dashicons dashicons-visibility" id="claude_api_key_icon"></span>';
+        echo '</button>';
+        echo '</div>';
+        echo '<p class="description">Anthropic Claude API 키를 입력하세요. <a href="https://console.anthropic.com/" target="_blank">API 키 생성</a></p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // Groq API 키
+        echo '<tr class="api-key-row groq-key">';
+        echo '<th scope="row">Groq API 키</th>';
+        echo '<td>';
+        echo '<div style="position: relative; display: inline-block; width: 100%;">';
+        echo '<input type="password" name="ainl_groq_api_key" id="groq_api_key" value="' . esc_attr(get_option('ainl_groq_api_key', '')) . '" class="regular-text" placeholder="gsk_..." />';
+        echo '<button type="button" class="button eye-toggle" onclick="toggleApiKeyVisibility(\'groq_api_key\')" style="margin-left: 5px;">';
+        echo '<span class="dashicons dashicons-visibility" id="groq_api_key_icon"></span>';
+        echo '</button>';
+        echo '</div>';
+        echo '<p class="description">Groq API 키를 입력하세요. <a href="https://console.groq.com/keys" target="_blank">API 키 생성</a> (OpenAI 호환)</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // AI 모델 세부 설정
+        echo '<tr>';
+        echo '<th scope="row">AI 모델</th>';
+        echo '<td>';
+        echo '<select name="ainl_ai_model" id="ainl_ai_model">';
+        $current_model = get_option('ainl_ai_model', 'gpt-3.5-turbo');
+        
+        // OpenAI 모델들
+        echo '<optgroup label="OpenAI" class="model-group openai-models">';
+        echo '<option value="gpt-4o"' . selected($current_model, 'gpt-4o', false) . '>GPT-4o (최신)</option>';
+        echo '<option value="gpt-4"' . selected($current_model, 'gpt-4', false) . '>GPT-4</option>';
+        echo '<option value="gpt-3.5-turbo"' . selected($current_model, 'gpt-3.5-turbo', false) . '>GPT-3.5 Turbo</option>';
+        echo '</optgroup>';
+        
+        // Claude 모델들
+        echo '<optgroup label="Anthropic Claude" class="model-group claude-models">';
+        echo '<option value="claude-3-5-sonnet-20241022"' . selected($current_model, 'claude-3-5-sonnet-20241022', false) . '>Claude 3.5 Sonnet</option>';
+        echo '<option value="claude-3-haiku-20240307"' . selected($current_model, 'claude-3-haiku-20240307', false) . '>Claude 3 Haiku</option>';
+        echo '</optgroup>';
+        
+        // Groq 모델들
+        echo '<optgroup label="Groq" class="model-group groq-models">';
+        echo '<option value="llama-3.3-70b-versatile"' . selected($current_model, 'llama-3.3-70b-versatile', false) . '>Llama 3.3 70B</option>';
+        echo '<option value="llama-3.1-70b-versatile"' . selected($current_model, 'llama-3.1-70b-versatile', false) . '>Llama 3.1 70B</option>';
+        echo '<option value="gemma2-9b-it"' . selected($current_model, 'gemma2-9b-it', false) . '>Gemma 2 9B</option>';
+        echo '</optgroup>';
+        
+        echo '</select>';
+        echo '<p class="description">선택한 AI 서비스에서 사용할 모델을 선택하세요.</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // AI 생성 옵션
+        echo '<tr>';
+        echo '<th scope="row">AI 생성 옵션</th>';
+        echo '<td>';
+        echo '<label><input type="checkbox" name="ainl_ai_summarize" value="1" ' . checked(get_option('ainl_ai_summarize', 1), 1, false) . ' /> 게시물 자동 요약</label><br>';
+        echo '<label><input type="checkbox" name="ainl_ai_enhance_titles" value="1" ' . checked(get_option('ainl_ai_enhance_titles', 1), 1, false) . ' /> 제목 개선</label><br>';
+        echo '<label><input type="checkbox" name="ainl_ai_add_intro" value="1" ' . checked(get_option('ainl_ai_add_intro', 1), 1, false) . ' /> 인사말 자동 생성</label>';
+        echo '</td>';
+        echo '</tr>';
+        
+        echo '</table>';
+        echo '</div>';
+        
         echo '<p class="submit"><input type="submit" name="submit" class="button button-primary" value="설정 저장" /></p>';
         echo '</form>';
-        echo '</div>';
+        
+        // JavaScript 코드 추가
+        echo '<script>
+        // API 키 표시/숨김 토글 함수
+        function toggleApiKeyVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = document.getElementById(fieldId + "_icon");
+            
+            if (field.type === "password") {
+                field.type = "text";
+                icon.className = "dashicons dashicons-hidden";
+            } else {
+                field.type = "password";
+                icon.className = "dashicons dashicons-visibility";
+            }
+        }
+        
+        // AI 제공업체 변경 시 모델 옵션 필터링
+        document.getElementById("ainl_ai_provider").addEventListener("change", function() {
+            const provider = this.value;
+            const modelSelect = document.getElementById("ainl_ai_model");
+            const groups = modelSelect.querySelectorAll("optgroup");
+            
+            // 모든 그룹 숨김
+            groups.forEach(group => {
+                group.style.display = "none";
+            });
+            
+            // 선택된 제공업체의 그룹만 표시
+            const targetGroup = modelSelect.querySelector("." + provider + "-models");
+            if (targetGroup) {
+                targetGroup.style.display = "block";
+                // 첫 번째 옵션 선택
+                const firstOption = targetGroup.querySelector("option");
+                if (firstOption) {
+                    modelSelect.value = firstOption.value;
+                }
+            }
+        });
+        
+        // 페이지 로드 시 초기 설정
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById("ainl_ai_provider").dispatchEvent(new Event("change"));
+        });
+        </script>';
+        
         echo '</div>';
     }
     
