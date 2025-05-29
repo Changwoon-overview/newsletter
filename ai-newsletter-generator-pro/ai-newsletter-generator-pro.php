@@ -529,10 +529,16 @@ class AI_Newsletter_Generator_Pro {
      */
     private function render_create_tab() {
         echo '<div class="create-newsletter">';
+        
+        // 오류 메시지 표시
+        if (isset($_GET['error']) && $_GET['error'] == 'true') {
+            echo '<div class="notice notice-error is-dismissible"><p><strong>❌ 뉴스레터 생성 중 오류가 발생했습니다.</strong> 다시 시도해주세요.</p></div>';
+        }
+        
         echo '<h3>새 뉴스레터 생성</h3>';
         echo '<div class="postbox">';
         echo '<div class="inside">';
-        echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
+        echo '<form method="post" action="' . admin_url('admin-post.php') . '" id="newsletter-form">';
         if (function_exists('wp_nonce_field')) {
             wp_nonce_field('ainl_create_newsletter', 'ainl_create_nonce');
         }
@@ -560,12 +566,53 @@ class AI_Newsletter_Generator_Pro {
         echo '</table>';
         
         echo '<p class="submit">';
-        echo '<input type="submit" name="submit" class="button button-primary" value="AI 뉴스레터 생성" />';
+        echo '<input type="submit" name="submit" id="create-newsletter-btn" class="button button-primary" value="AI 뉴스레터 생성" />';
         echo '<input type="submit" name="preview" class="button button-secondary" value="미리보기" style="margin-left: 10px;" />';
+        echo '<span id="loading-message" style="margin-left: 15px; display: none; color: #0073aa;">';
+        echo '<span class="spinner is-active" style="float: none; margin: 0 5px 0 0;"></span>';
+        echo '뉴스레터를 생성 중입니다... 잠시만 기다려주세요!';
+        echo '</span>';
         echo '</p>';
         echo '</form>';
+        
+        // JavaScript 추가
+        echo '<script>
+        document.getElementById("newsletter-form").addEventListener("submit", function(e) {
+            const submitBtn = document.getElementById("create-newsletter-btn");
+            const loadingMsg = document.getElementById("loading-message");
+            
+            if (e.submitter && e.submitter.name === "submit") {
+                // 생성 버튼이 클릭된 경우
+                submitBtn.disabled = true;
+                submitBtn.value = "생성 중...";
+                loadingMsg.style.display = "inline";
+                
+                // 3초 후에도 응답이 없으면 타임아웃 메시지 표시
+                setTimeout(function() {
+                    if (submitBtn.disabled) {
+                        loadingMsg.innerHTML = "<span class=\\"spinner is-active\\" style=\\"float: none; margin: 0 5px 0 0;\\"></span>처리 중입니다... 페이지를 새로고침하지 마세요!";
+                    }
+                }, 3000);
+            }
+        });
+        </script>';
+        
         echo '</div>';
         echo '</div>';
+        
+        // 도움말 섹션 추가
+        echo '<div class="postbox" style="margin-top: 20px;">';
+        echo '<div class="inside">';
+        echo '<h4>💡 AI 뉴스레터 생성 도움말</h4>';
+        echo '<ul>';
+        echo '<li><strong>제목:</strong> 자동으로 날짜가 포함된 제목이 생성됩니다. 원하시면 수정하세요.</li>';
+        echo '<li><strong>게시물 수:</strong> 너무 많으면 이메일이 길어질 수 있습니다. 5-10개가 적당합니다.</li>';
+        echo '<li><strong>게시물 범위:</strong> 최근 게시물들 중에서 선택하는 기간을 설정합니다.</li>';
+        echo '<li><strong>생성 시간:</strong> AI 처리로 인해 10-30초 정도 소요될 수 있습니다.</li>';
+        echo '</ul>';
+        echo '</div>';
+        echo '</div>';
+        
         echo '</div>';
     }
     
@@ -638,6 +685,18 @@ class AI_Newsletter_Generator_Pro {
         $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
         
         echo '<div class="campaigns-history">';
+        
+        // 성공/오류 메시지 표시
+        if (isset($_GET['created']) && $_GET['created'] == 'true') {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>🎉 뉴스레터가 성공적으로 생성되었습니다!</strong> 아래 목록에서 확인하실 수 있습니다.</p></div>';
+        }
+        if (isset($_GET['error']) && $_GET['error'] == 'true') {
+            echo '<div class="notice notice-error is-dismissible"><p><strong>❌ 뉴스레터 생성 중 오류가 발생했습니다.</strong> 다시 시도해주세요.</p></div>';
+        }
+        if (isset($_GET['duplicate']) && $_GET['duplicate'] == 'true') {
+            echo '<div class="notice notice-warning is-dismissible"><p><strong>⚠️ 이미 동일한 제목의 뉴스레터가 존재합니다.</strong></p></div>';
+        }
+        
         echo '<h3>뉴스레터 발송 이력</h3>';
         
         if ($wpdb) {
@@ -647,13 +706,20 @@ class AI_Newsletter_Generator_Pro {
                 echo '<thead><tr><th>제목</th><th>상태</th><th>생성일</th><th>발송일</th><th>작업</th></tr></thead>';
                 echo '<tbody>';
                 foreach ($campaigns as $campaign) {
-                    echo '<tr>';
+                    // 새로 생성된 캠페인 하이라이트
+                    $row_class = '';
+                    if (isset($_GET['created']) && $_GET['created'] == 'true' && 
+                        strtotime($campaign->created_at) > (time() - 60)) { // 1분 이내 생성된 것
+                        $row_class = ' style="background-color: #f0f8f0; border-left: 4px solid #46b450;"';
+                    }
+                    
+                    echo '<tr' . $row_class . '>';
                     echo '<td>' . esc_html($campaign->title) . '</td>';
                     echo '<td>';
                     if ($campaign->status == 'sent') {
-                        echo '<span style="color: green;">발송 완료</span>';
+                        echo '<span style="color: green; font-weight: bold;">✅ 발송 완료</span>';
                     } elseif ($campaign->status == 'draft') {
-                        echo '<span style="color: orange;">임시저장</span>';
+                        echo '<span style="color: orange; font-weight: bold;">📝 임시저장</span>';
                     } else {
                         echo '<span>' . $campaign->status . '</span>';
                     }
@@ -661,15 +727,31 @@ class AI_Newsletter_Generator_Pro {
                     echo '<td>' . date('Y-m-d H:i', strtotime($campaign->created_at)) . '</td>';
                     echo '<td>' . ($campaign->sent_at ? date('Y-m-d H:i', strtotime($campaign->sent_at)) : '-') . '</td>';
                     echo '<td>';
-                    echo '<button class="button button-small" onclick="viewCampaign(' . $campaign->id . ')">보기</button> ';
+                    echo '<button class="button button-small" onclick="viewCampaign(' . $campaign->id . ')">📄 보기</button> ';
                     if ($campaign->status == 'draft') {
-                        echo '<button class="button button-small button-primary" onclick="sendCampaign(' . $campaign->id . ')">발송</button>';
+                        echo '<button class="button button-small button-primary" onclick="sendCampaign(' . $campaign->id . ')">📤 발송</button>';
                     }
                     echo '</td>';
                     echo '</tr>';
                 }
                 echo '</tbody>';
                 echo '</table>';
+                
+                // 추가 안내 메시지
+                if (isset($_GET['created']) && $_GET['created'] == 'true') {
+                    echo '<div class="postbox" style="margin-top: 20px;">';
+                    echo '<div class="inside">';
+                    echo '<h4>🚀 다음 단계</h4>';
+                    echo '<p>생성된 뉴스레터를 검토한 후 발송하실 수 있습니다:</p>';
+                    echo '<ul>';
+                    echo '<li><strong>📄 보기</strong> - 뉴스레터 내용을 미리보기</li>';
+                    echo '<li><strong>📤 발송</strong> - 구독자들에게 이메일 발송</li>';
+                    echo '</ul>';
+                    echo '<p><a href="' . admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create') . '" class="button button-secondary">새 뉴스레터 추가 생성</a></p>';
+                    echo '</div>';
+                    echo '</div>';
+                }
+                
             } else {
                 echo '<p>아직 발송한 뉴스레터가 없습니다. <a href="' . admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create') . '">새 뉴스레터를 생성</a>해보세요.</p>';
             }
