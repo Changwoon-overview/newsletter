@@ -1033,78 +1033,79 @@ class AI_Newsletter_Generator_Pro {
         echo '</tr>';
         
         // AI 매개변수 설정
-        echo '<tr>
-            <th scope="row">
-                <label for="ainl_ai_tone">톤앤매너</label>
-            </th>
-            <td>
-                <select name="ainl_ai_tone" id="ainl_ai_tone" class="regular-text">
-                    <option value="professional" <?php selected(get_option('ainl_ai_tone'), 'professional'); ?>>전문적인</option>
-                    <option value="friendly" <?php selected(get_option('ainl_ai_tone'), 'friendly'); ?>>친근한</option>
-                    <option value="formal" <?php selected(get_option('ainl_ai_tone'), 'formal'); ?>>공식적인</option>
-                    <option value="casual" <?php selected(get_option('ainl_ai_tone'), 'casual'); ?>>캐주얼한</option>
-                    <option value="enthusiastic" <?php selected(get_option('ainl_ai_tone'), 'enthusiastic'); ?>>열정적인</option>
-                    <option value="informative" <?php selected(get_option('ainl_ai_tone'), 'informative'); ?>>정보전달형</option>
-                </select>
-                <p class="description">뉴스레터에 사용할 글의 톤앤매너를 선택하세요.</p>
-            </td>
-        </tr>';
+        echo '<tr>';
+        echo '<th scope="row">';
+        echo '<label for="ainl_ai_tone">톤앤매너</label>';
+        echo '</th>';
+        echo '<td>';
+        echo '<select name="ainl_ai_tone" id="ainl_ai_tone" class="regular-text">';
+        $current_tone = get_option('ainl_ai_tone', 'professional');
+        echo '<option value="professional"' . selected($current_tone, 'professional', false) . '>전문적인</option>';
+        echo '<option value="friendly"' . selected($current_tone, 'friendly', false) . '>친근한</option>';
+        echo '<option value="formal"' . selected($current_tone, 'formal', false) . '>공식적인</option>';
+        echo '<option value="casual"' . selected($current_tone, 'casual', false) . '>캐주얼한</option>';
+        echo '<option value="enthusiastic"' . selected($current_tone, 'enthusiastic', false) . '>열정적인</option>';
+        echo '<option value="informative"' . selected($current_tone, 'informative', false) . '>정보전달형</option>';
+        echo '</select>';
+        echo '<p class="description">뉴스레터에 사용할 글의 톤앤매너를 선택하세요.</p>';
+        echo '</td>';
+        echo '</tr>';
         
-        // AI 매개변수 설정
-        echo '<tr>
-            <th scope="row">
-                <label>AI 고급 설정</label>
-            </th>
-            <td>
-                <table class="form-table" style="margin: 0;">
-                    <tr>
-                        <td style="padding: 5px 0;">
-                            <label for="ainl_ai_temperature" style="display: inline-block; width: 120px;"><strong>Temperature:</strong></label>
-                            <input type="range" name="ainl_ai_temperature" id="ainl_ai_temperature" 
-                                   min="0" max="2" step="0.1" 
-                                   value="<?php echo esc_attr(get_option('ainl_ai_temperature', '0.7')); ?>"
-                                   style="width: 200px;" 
-                                   oninput="document.getElementById('temperature_value').textContent = this.value">
-                            <span id="temperature_value" style="margin-left: 10px; font-weight: bold;">
-                                <?php echo esc_html(get_option('ainl_ai_temperature', '0.7')); ?>
-                            </span>
-                            <p class="description" style="margin-left: 120px; margin-top: 5px;">
-                                창의성 조절 (0=일관성, 2=창의적) - 추천: 0.7
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 5px 0;">
-                            <label for="ainl_ai_max_tokens" style="display: inline-block; width: 120px;"><strong>Max Tokens:</strong></label>
-                            <input type="number" name="ainl_ai_max_tokens" id="ainl_ai_max_tokens" 
-                                   min="100" max="4000" 
-                                   value="<?php echo esc_attr(get_option('ainl_ai_max_tokens', '1500')); ?>"
-                                   style="width: 100px;">
-                            <span style="margin-left: 10px; color: #666;">토큰</span>
-                            <p class="description" style="margin-left: 120px; margin-top: 5px;">
-                                생성할 최대 글자 수 (한글 기준 약 1토큰=1글자) - 추천: 1500
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 5px 0;">
-                            <label for="ainl_ai_top_p" style="display: inline-block; width: 120px;"><strong>Top-p:</strong></label>
-                            <input type="range" name="ainl_ai_top_p" id="ainl_ai_top_p" 
-                                   min="0.1" max="1" step="0.05" 
-                                   value="<?php echo esc_attr(get_option('ainl_ai_top_p', '0.9')); ?>"
-                                   style="width: 200px;" 
-                                   oninput="document.getElementById('top_p_value').textContent = this.value">
-                            <span id="top_p_value" style="margin-left: 10px; font-weight: bold;">
-                                <?php echo esc_html(get_option('ainl_ai_top_p', '0.9')); ?>
-                            </span>
-                            <p class="description" style="margin-left: 120px; margin-top: 5px;">
-                                다양성 조절 (0.1=보수적, 1=다양함) - 추천: 0.9
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>';
+        // AI 고급 설정 섹션
+        echo '<tr>';
+        echo '<th scope="row">';
+        echo '<label>AI 고급 설정</label>';
+        echo '</th>';
+        echo '<td>';
+        echo '<table class="form-table" style="margin: 0;">';
+        
+        // Temperature 설정
+        echo '<tr>';
+        echo '<td style="padding: 5px 0;">';
+        echo '<label for="ainl_ai_temperature" style="display: inline-block; width: 120px;"><strong>Temperature:</strong></label>';
+        $current_temp = esc_attr(get_option('ainl_ai_temperature', '0.7'));
+        echo '<input type="range" name="ainl_ai_temperature" id="ainl_ai_temperature" ';
+        echo 'min="0" max="2" step="0.1" value="' . $current_temp . '" style="width: 200px;" ';
+        echo 'oninput="document.getElementById(\'temperature_value\').textContent = this.value">';
+        echo '<span id="temperature_value" style="margin-left: 10px; font-weight: bold;">' . esc_html($current_temp) . '</span>';
+        echo '<p class="description" style="margin-left: 120px; margin-top: 5px;">';
+        echo '창의성 조절 (0=일관성, 2=창의적) - 추천: 0.7';
+        echo '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // Max Tokens 설정
+        echo '<tr>';
+        echo '<td style="padding: 5px 0;">';
+        echo '<label for="ainl_ai_max_tokens" style="display: inline-block; width: 120px;"><strong>Max Tokens:</strong></label>';
+        $current_tokens = esc_attr(get_option('ainl_ai_max_tokens', '1500'));
+        echo '<input type="number" name="ainl_ai_max_tokens" id="ainl_ai_max_tokens" ';
+        echo 'min="100" max="4000" value="' . $current_tokens . '" style="width: 100px;">';
+        echo '<span style="margin-left: 10px; color: #666;">토큰</span>';
+        echo '<p class="description" style="margin-left: 120px; margin-top: 5px;">';
+        echo '생성할 최대 글자 수 (한글 기준 약 1토큰=1글자) - 추천: 1500';
+        echo '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        // Top-p 설정
+        echo '<tr>';
+        echo '<td style="padding: 5px 0;">';
+        echo '<label for="ainl_ai_top_p" style="display: inline-block; width: 120px;"><strong>Top-p:</strong></label>';
+        $current_top_p = esc_attr(get_option('ainl_ai_top_p', '0.9'));
+        echo '<input type="range" name="ainl_ai_top_p" id="ainl_ai_top_p" ';
+        echo 'min="0.1" max="1" step="0.05" value="' . $current_top_p . '" style="width: 200px;" ';
+        echo 'oninput="document.getElementById(\'top_p_value\').textContent = this.value">';
+        echo '<span id="top_p_value" style="margin-left: 10px; font-weight: bold;">' . esc_html($current_top_p) . '</span>';
+        echo '<p class="description" style="margin-left: 120px; margin-top: 5px;">';
+        echo '다양성 조절 (0.1=보수적, 1=다양함) - 추천: 0.9';
+        echo '</p>';
+        echo '</td>';
+        echo '</tr>';
+        
+        echo '</table>';
+        echo '</td>';
+        echo '</tr>';
         
         echo '</table>';
         echo '</div>';
