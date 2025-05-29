@@ -26,4 +26,13 @@ node_modules/
 
 # Task files
 tasks.json
-tasks/ 
+tasks/
+
+# ZIP files (플러그인 압축 파일)
+*.zip
+ai-newsletter-generator-pro.zip
+
+# WordPress plugin build files
+*.tar.gz
+build/
+dist/ 
