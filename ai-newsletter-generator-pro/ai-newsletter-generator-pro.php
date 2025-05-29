@@ -1389,7 +1389,7 @@ class AI_Newsletter_Generator_Pro {
                 return;
             }
             
-            // 데이터베이스 테이블 생성
+            // 데이터베이스 테이블 생성 (강제 재생성)
             $this->create_tables();
             
             // 기본 옵션 설정
@@ -1441,9 +1441,18 @@ class AI_Newsletter_Generator_Pro {
         }
         
         try {
-            // 뉴스레터 구독자 테이블
+            // 기존 테이블 구조 확인 및 삭제 (잘못된 구조 수정)
+            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
             $subscribers_table = $wpdb->prefix . 'ainl_subscribers';
-            $sql_subscribers = "CREATE TABLE IF NOT EXISTS $subscribers_table (
+            
+            // 기존 테이블 삭제 (구조 문제가 있을 수 있으므로)
+            $wpdb->query("DROP TABLE IF EXISTS $campaigns_table");
+            $wpdb->query("DROP TABLE IF EXISTS $subscribers_table");
+            
+            error_log('AINL Debug: 기존 테이블 삭제 완료');
+            
+            // 뉴스레터 구독자 테이블 생성
+            $sql_subscribers = "CREATE TABLE $subscribers_table (
                 id int(11) NOT NULL AUTO_INCREMENT,
                 email varchar(255) NOT NULL,
                 name varchar(255) DEFAULT '',
@@ -1455,26 +1464,33 @@ class AI_Newsletter_Generator_Pro {
                 KEY status (status)
             ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
             
-            // 뉴스레터 캠페인 테이블
-            $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
-            $sql_campaigns = "CREATE TABLE IF NOT EXISTS $campaigns_table (
+            // 뉴스레터 캠페인 테이블 생성 (올바른 구조로)
+            $sql_campaigns = "CREATE TABLE $campaigns_table (
                 id int(11) NOT NULL AUTO_INCREMENT,
-                title varchar(255) NOT NULL,
+                title varchar(500) NOT NULL,
                 content longtext,
                 status varchar(20) DEFAULT 'draft',
                 sent_at datetime NULL,
                 created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
-                KEY status (status)
+                KEY status (status),
+                KEY created_at (created_at)
             ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
             
-            if (function_exists('require_once')) {
-                require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-                if (function_exists('dbDelta')) {
-                    dbDelta($sql_subscribers);
-                    dbDelta($sql_campaigns);
-                }
+            // 테이블 생성 실행
+            $result1 = $wpdb->query($sql_subscribers);
+            $result2 = $wpdb->query($sql_campaigns);
+            
+            error_log('AINL Debug: 구독자 테이블 생성 결과: ' . ($result1 !== false ? '성공' : '실패'));
+            error_log('AINL Debug: 캠페인 테이블 생성 결과: ' . ($result2 !== false ? '성공' : '실패'));
+            
+            if ($result1 === false || $result2 === false) {
+                error_log('AINL Debug: 테이블 생성 실패 - 마지막 오류: ' . $wpdb->last_error);
             }
+            
+            // 테이블 구조 확인
+            $table_structure = $wpdb->get_results("DESCRIBE $campaigns_table");
+            error_log('AINL Debug: 캠페인 테이블 구조: ' . print_r($table_structure, true));
             
         } catch (Exception $e) {
             error_log('AINL Plugin Database Error: ' . $e->getMessage());
