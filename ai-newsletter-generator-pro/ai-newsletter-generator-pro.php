@@ -150,7 +150,6 @@ class AI_Newsletter_Generator_Pro {
             // 관리자 메뉴 직접 추가 (admin_init보다 빠르게)
             if (function_exists('is_admin') && is_admin()) {
                 add_action('admin_menu', array($this, 'add_admin_menu'));
-                add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
                 add_action('admin_init', array($this, 'admin_init'));
                 
                 // 설정 저장 처리를 위한 admin_post 액션 추가
