@@ -37,25 +37,25 @@ if (!function_exists('plugin_dir_path') || !function_exists('plugin_dir_url') ||
 
 // PHP 메모리 제한 증가 - 500 오류 방지
 if (function_exists('ini_set')) {
-    @ini_set('memory_limit', '512M');
-    @ini_set('max_execution_time', 300);
+@ini_set('memory_limit', '512M');
+@ini_set('max_execution_time', 300);
 }
 
 // 플러그인 상수 정의 (WordPress 함수 가용성 확인 후)
 if (!defined('AINL_PLUGIN_FILE')) {
-    define('AINL_PLUGIN_FILE', __FILE__);
+define('AINL_PLUGIN_FILE', __FILE__);
 }
 if (!defined('AINL_PLUGIN_DIR')) {
-    define('AINL_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('AINL_PLUGIN_DIR', plugin_dir_path(__FILE__));
 }
 if (!defined('AINL_PLUGIN_URL')) {
-    define('AINL_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('AINL_PLUGIN_URL', plugin_dir_url(__FILE__));
 }
 if (!defined('AINL_PLUGIN_VERSION')) {
-    define('AINL_PLUGIN_VERSION', '1.0.0');
+define('AINL_PLUGIN_VERSION', '1.0.0');
 }
 if (!defined('AINL_PLUGIN_BASENAME')) {
-    define('AINL_PLUGIN_BASENAME', plugin_basename(__FILE__));
+define('AINL_PLUGIN_BASENAME', plugin_basename(__FILE__));
 }
 
 /**
@@ -97,8 +97,8 @@ class AI_Newsletter_Generator_Pro {
                 return;
             }
             
-            $this->init_hooks();
-            $this->load_dependencies();
+        $this->init_hooks();
+        $this->load_dependencies();
             $this->is_loaded = true;
             
         } catch (Exception $e) {
@@ -152,6 +152,9 @@ class AI_Newsletter_Generator_Pro {
                 add_action('admin_menu', array($this, 'add_admin_menu'));
                 add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
                 add_action('admin_init', array($this, 'admin_init'));
+                
+                // 설정 저장 처리를 위한 admin_post 액션 추가
+                add_action('admin_post_save_ainl_settings', array($this, 'save_settings'));
             }
             
         } catch (Exception $e) {
@@ -199,8 +202,8 @@ class AI_Newsletter_Generator_Pro {
         $file_name = 'class-' . strtolower(str_replace(array('AINL_', '_'), array('', '-'), $class_name)) . '.php';
         $file_path = AINL_PLUGIN_DIR . 'includes/' . $file_name;
         
-        if (file_exists($file_path)) {
-            require_once $file_path;
+            if (file_exists($file_path)) {
+                require_once $file_path;
         }
     }
     
@@ -364,6 +367,59 @@ class AI_Newsletter_Generator_Pro {
     }
     
     /**
+     * 설정 저장 처리
+     */
+    public function save_settings() {
+        try {
+            // 권한 체크
+            if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+                wp_die(__('권한이 없습니다.'));
+            }
+            
+            // nonce 보안 검증
+            if (!function_exists('wp_verify_nonce') || !wp_verify_nonce($_POST['ainl_settings_nonce'], 'ainl_save_settings')) {
+                wp_die(__('보안 검증에 실패했습니다.'));
+            }
+            
+            // 설정값 저장
+            if (function_exists('update_option')) {
+                if (isset($_POST['ainl_email_from_name'])) {
+                    update_option('ainl_email_from_name', sanitize_text_field($_POST['ainl_email_from_name']));
+                }
+                
+                if (isset($_POST['ainl_email_from_email'])) {
+                    update_option('ainl_email_from_email', sanitize_email($_POST['ainl_email_from_email']));
+                }
+                
+                if (isset($_POST['ainl_newsletter_frequency'])) {
+                    $frequency = sanitize_text_field($_POST['ainl_newsletter_frequency']);
+                    if (in_array($frequency, array('weekly', 'monthly'))) {
+                        update_option('ainl_newsletter_frequency', $frequency);
+                    }
+                }
+                
+                if (isset($_POST['ainl_max_posts_per_newsletter'])) {
+                    $max_posts = intval($_POST['ainl_max_posts_per_newsletter']);
+                    if ($max_posts > 0 && $max_posts <= 20) {
+                        update_option('ainl_max_posts_per_newsletter', $max_posts);
+                    }
+                }
+            }
+            
+            // 성공 메시지와 함께 설정 페이지로 리다이렉트
+            $redirect_url = admin_url('admin.php?page=ai-newsletter-settings&settings-updated=true');
+            wp_redirect($redirect_url);
+            exit;
+            
+        } catch (Exception $e) {
+            error_log('AINL Plugin Settings Save Error: ' . $e->getMessage());
+            $redirect_url = admin_url('admin.php?page=ai-newsletter-settings&error=true');
+            wp_redirect($redirect_url);
+            exit;
+        }
+    }
+    
+    /**
      * 설정 페이지 렌더링
      */
     public function settings_page() {
@@ -371,19 +427,34 @@ class AI_Newsletter_Generator_Pro {
             wp_die(__('You do not have sufficient permissions to access this page.'));
         }
         
+        // 성공/오류 메시지 표시
+        if (isset($_GET['settings-updated']) && $_GET['settings-updated'] == 'true') {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>설정이 저장되었습니다!</strong></p></div>';
+        }
+        if (isset($_GET['error']) && $_GET['error'] == 'true') {
+            echo '<div class="notice notice-error is-dismissible"><p><strong>설정 저장 중 오류가 발생했습니다.</strong></p></div>';
+        }
+        
         echo '<div class="wrap">';
         echo '<h1>AI Newsletter Settings</h1>';
         echo '<div class="card">';
         echo '<h2>기본 설정</h2>';
-        echo '<form method="post" action="options.php">';
+        echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
+        
+        // nonce 필드 추가
+        if (function_exists('wp_nonce_field')) {
+            wp_nonce_field('ainl_save_settings', 'ainl_settings_nonce');
+        }
+        echo '<input type="hidden" name="action" value="save_ainl_settings" />';
+        
         echo '<table class="form-table">';
         echo '<tr>';
         echo '<th scope="row">발송자 이름</th>';
-        echo '<td><input type="text" name="ainl_email_from_name" value="' . get_option('ainl_email_from_name', get_bloginfo('name')) . '" class="regular-text" /></td>';
+        echo '<td><input type="text" name="ainl_email_from_name" value="' . esc_attr(get_option('ainl_email_from_name', get_bloginfo('name'))) . '" class="regular-text" /></td>';
         echo '</tr>';
         echo '<tr>';
         echo '<th scope="row">발송자 이메일</th>';
-        echo '<td><input type="email" name="ainl_email_from_email" value="' . get_option('ainl_email_from_email', get_bloginfo('admin_email')) . '" class="regular-text" /></td>';
+        echo '<td><input type="email" name="ainl_email_from_email" value="' . esc_attr(get_option('ainl_email_from_email', get_bloginfo('admin_email'))) . '" class="regular-text" /></td>';
         echo '</tr>';
         echo '<tr>';
         echo '<th scope="row">뉴스레터 발송 주기</th>';
@@ -394,6 +465,10 @@ class AI_Newsletter_Generator_Pro {
         echo '<option value="monthly"' . selected($frequency, 'monthly', false) . '>월간</option>';
         echo '</select>';
         echo '</td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th scope="row">뉴스레터 당 최대 게시물 수</th>';
+        echo '<td><input type="number" name="ainl_max_posts_per_newsletter" value="' . esc_attr(get_option('ainl_max_posts_per_newsletter', 5)) . '" min="1" max="20" class="small-text" /> 개</td>';
         echo '</tr>';
         echo '</table>';
         echo '<p class="submit"><input type="submit" name="submit" class="button button-primary" value="설정 저장" /></p>';
