@@ -530,9 +530,52 @@ class AI_Newsletter_Generator_Pro {
     private function render_create_tab() {
         echo '<div class="create-newsletter">';
         
-        // 오류 메시지 표시
+        // 오류 메시지 표시 (구체적 원인 포함)
         if (isset($_GET['error']) && $_GET['error'] == 'true') {
-            echo '<div class="notice notice-error is-dismissible"><p><strong>❌ 뉴스레터 생성 중 오류가 발생했습니다.</strong> 다시 시도해주세요.</p></div>';
+            $debug_info = isset($_GET['debug']) ? $_GET['debug'] : '';
+            echo '<div class="notice notice-error is-dismissible">';
+            echo '<p><strong>❌ 뉴스레터 생성 중 오류가 발생했습니다.</strong></p>';
+            
+            switch ($debug_info) {
+                case 'func_missing':
+                    echo '<p>🔍 <strong>원인:</strong> WordPress 권한 함수를 찾을 수 없습니다. 플러그인을 다시 활성화해보세요.</p>';
+                    break;
+                case 'nonce_func_missing':
+                    echo '<p>🔍 <strong>원인:</strong> WordPress 보안 함수를 찾을 수 없습니다.</p>';
+                    break;
+                case 'nonce_missing':
+                    echo '<p>🔍 <strong>원인:</strong> 보안 토큰이 누락되었습니다. 페이지를 새로고침하고 다시 시도하세요.</p>';
+                    break;
+                case 'db_null':
+                    echo '<p>🔍 <strong>원인:</strong> 데이터베이스 연결에 실패했습니다.</p>';
+                    break;
+                case 'table_missing':
+                    echo '<p>🔍 <strong>원인:</strong> 데이터베이스 테이블이 생성되지 않았습니다. 플러그인을 비활성화 후 다시 활성화해보세요.</p>';
+                    break;
+                case 'sanitize_missing':
+                    echo '<p>🔍 <strong>원인:</strong> WordPress 데이터 처리 함수를 찾을 수 없습니다.</p>';
+                    break;
+                case 'empty_title':
+                    echo '<p>🔍 <strong>원인:</strong> 뉴스레터 제목이 비어있습니다. 제목을 입력해주세요.</p>';
+                    break;
+                case 'insert_failed':
+                    echo '<p>🔍 <strong>원인:</strong> 데이터베이스 저장에 실패했습니다. 로그를 확인해주세요.</p>';
+                    break;
+                case 'exception':
+                    echo '<p>🔍 <strong>원인:</strong> 예상치 못한 오류가 발생했습니다. 개발자 로그를 확인해주세요.</p>';
+                    break;
+                default:
+                    echo '<p>🔍 다시 시도해주세요. 문제가 지속되면 관리자에게 문의하세요.</p>';
+            }
+            
+            echo '<p><strong>💡 해결 방법:</strong></p>';
+            echo '<ul>';
+            echo '<li>플러그인을 비활성화한 후 다시 활성화해보세요</li>';
+            echo '<li>WordPress 업데이트를 확인하세요</li>';
+            echo '<li>다른 플러그인과의 충돌이 있는지 확인해보세요</li>';
+            echo '<li>웹 서버 오류 로그를 확인해보세요</li>';
+            echo '</ul>';
+            echo '</div>';
         }
         
         echo '<h3>새 뉴스레터 생성</h3>';
@@ -1468,56 +1511,168 @@ class AI_Newsletter_Generator_Pro {
      * 뉴스레터 생성 처리
      */
     public function create_newsletter() {
+        error_log('AINL Debug: create_newsletter 시작');
+        
         try {
-            // 권한 체크
-            if (!function_exists('current_user_can') || !current_user_can('manage_options')) {
+            // 1단계: 권한 체크
+            if (!function_exists('current_user_can')) {
+                error_log('AINL Debug: current_user_can 함수가 존재하지 않음');
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=func_missing');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
+            if (!current_user_can('manage_options')) {
+                error_log('AINL Debug: 사용자 권한 부족');
                 wp_die(__('권한이 없습니다.'));
             }
             
-            // nonce 보안 검증
-            if (!function_exists('wp_verify_nonce') || !wp_verify_nonce($_POST['ainl_create_nonce'], 'ainl_create_newsletter')) {
+            error_log('AINL Debug: 권한 체크 통과');
+            
+            // 2단계: nonce 보안 검증
+            if (!function_exists('wp_verify_nonce')) {
+                error_log('AINL Debug: wp_verify_nonce 함수가 존재하지 않음');
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=nonce_func_missing');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
+            if (!isset($_POST['ainl_create_nonce'])) {
+                error_log('AINL Debug: nonce 필드가 POST 데이터에 없음');
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=nonce_missing');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
+            if (!wp_verify_nonce($_POST['ainl_create_nonce'], 'ainl_create_newsletter')) {
+                error_log('AINL Debug: nonce 검증 실패');
                 wp_die(__('보안 검증에 실패했습니다.'));
             }
             
+            error_log('AINL Debug: nonce 검증 통과');
+            
+            // 3단계: 데이터베이스 연결 확인
             global $wpdb;
+            if (!$wpdb) {
+                error_log('AINL Debug: $wpdb 객체가 null임');
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=db_null');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
             $campaigns_table = $wpdb->prefix . 'ainl_campaigns';
+            error_log('AINL Debug: 캠페인 테이블명: ' . $campaigns_table);
             
-            $title = sanitize_text_field($_POST['newsletter_title']);
-            $post_count = intval($_POST['post_count']);
-            $post_range = sanitize_text_field($_POST['post_range']);
-            
-            // 간단한 뉴스레터 내용 생성 (실제로는 AI가 처리)
-            $content = $this->generate_simple_newsletter_content($post_count, $post_range);
-            
-            // 캠페인 저장
-            if ($wpdb) {
-                $result = $wpdb->insert(
-                    $campaigns_table,
-                    array(
-                        'title' => $title,
-                        'content' => $content,
-                        'status' => 'draft',
-                        'created_at' => current_time('mysql')
-                    ),
-                    array('%s', '%s', '%s', '%s')
-                );
+            // 4단계: 테이블 존재 여부 확인
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$campaigns_table'");
+            if (!$table_exists) {
+                error_log('AINL Debug: 캠페인 테이블이 존재하지 않음 - 테이블 생성 시도');
+                $this->create_tables(); // 테이블 재생성 시도
                 
-                if ($result) {
-                    $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=campaigns&created=true');
-                } else {
-                    $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true');
+                // 다시 확인
+                $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$campaigns_table'");
+                if (!$table_exists) {
+                    error_log('AINL Debug: 테이블 생성 실패');
+                    $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=table_missing');
+                    wp_redirect($redirect_url);
+                    exit;
                 }
+            }
+            
+            error_log('AINL Debug: 테이블 존재 확인됨');
+            
+            // 5단계: 입력 데이터 검증 및 처리
+            if (!function_exists('sanitize_text_field')) {
+                error_log('AINL Debug: sanitize_text_field 함수가 존재하지 않음');
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=sanitize_missing');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
+            $title = isset($_POST['newsletter_title']) ? sanitize_text_field($_POST['newsletter_title']) : '';
+            $post_count = isset($_POST['post_count']) ? intval($_POST['post_count']) : 5;
+            $post_range = isset($_POST['post_range']) ? sanitize_text_field($_POST['post_range']) : 'week';
+            
+            if (empty($title)) {
+                error_log('AINL Debug: 뉴스레터 제목이 비어있음');
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=empty_title');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
+            error_log('AINL Debug: 입력 데이터 - 제목: ' . $title . ', 게시물 수: ' . $post_count . ', 범위: ' . $post_range);
+            
+            // 6단계: 뉴스레터 내용 생성
+            $content = $this->generate_simple_newsletter_content($post_count, $post_range);
+            error_log('AINL Debug: 뉴스레터 내용 생성 완료 - 길이: ' . strlen($content));
+            
+            // 7단계: current_time 함수 확인
+            if (!function_exists('current_time')) {
+                error_log('AINL Debug: current_time 함수가 존재하지 않음 - 기본 시간 사용');
+                $created_at = date('Y-m-d H:i:s');
             } else {
-                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true');
+                $created_at = current_time('mysql');
+            }
+            
+            error_log('AINL Debug: 생성 시간: ' . $created_at);
+            
+            // 8단계: 데이터베이스 INSERT 실행
+            $insert_data = array(
+                'title' => $title,
+                'content' => $content,
+                'status' => 'draft',
+                'created_at' => $created_at
+            );
+            
+            error_log('AINL Debug: INSERT 시도 - 데이터: ' . json_encode($insert_data));
+            
+            $result = $wpdb->insert(
+                $campaigns_table,
+                $insert_data,
+                array('%s', '%s', '%s', '%s')
+            );
+            
+            if ($result === false) {
+                error_log('AINL Debug: INSERT 실패 - DB 오류: ' . $wpdb->last_error);
+                error_log('AINL Debug: 마지막 쿼리: ' . $wpdb->last_query);
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=insert_failed');
+                wp_redirect($redirect_url);
+                exit;
+            }
+            
+            $insert_id = $wpdb->insert_id;
+            error_log('AINL Debug: INSERT 성공 - ID: ' . $insert_id);
+            
+            // 9단계: 성공 리다이렉트
+            if (!function_exists('admin_url')) {
+                error_log('AINL Debug: admin_url 함수가 존재하지 않음');
+                echo '<div class="notice notice-success"><p>뉴스레터가 성공적으로 생성되었습니다!</p></div>';
+                return;
+            }
+            
+            $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=campaigns&created=true');
+            error_log('AINL Debug: 성공 리다이렉트: ' . $redirect_url);
+            
+            if (!function_exists('wp_redirect')) {
+                error_log('AINL Debug: wp_redirect 함수가 존재하지 않음');
+                echo '<script>window.location.href = "' . $redirect_url . '";</script>';
+                return;
             }
             
             wp_redirect($redirect_url);
             exit;
             
         } catch (Exception $e) {
-            error_log('AINL Plugin Newsletter Creation Error: ' . $e->getMessage());
-            $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true');
-            wp_redirect($redirect_url);
+            error_log('AINL Debug: Exception 발생: ' . $e->getMessage());
+            error_log('AINL Debug: Exception 위치: ' . $e->getFile() . ':' . $e->getLine());
+            
+            // 안전한 리다이렉트 시도
+            if (function_exists('admin_url') && function_exists('wp_redirect')) {
+                $redirect_url = admin_url('admin.php?page=ai-newsletter-generator-pro&tab=create&error=true&debug=exception');
+                wp_redirect($redirect_url);
+            } else {
+                echo '<div class="notice notice-error"><p>뉴스레터 생성 중 오류가 발생했습니다: ' . esc_html($e->getMessage()) . '</p></div>';
+            }
             exit;
         }
     }
